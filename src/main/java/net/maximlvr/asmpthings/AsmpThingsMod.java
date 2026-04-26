@@ -1,6 +1,7 @@
 package net.maximlvr.asmpthings;
 
 import net.maximlvr.asmpthings.block.ModBlocks;
+import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
 import net.maximlvr.asmpthings.item.ModItems;
 import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
@@ -28,8 +29,11 @@ public class AsmpThingsMod {
         modEventBus.addListener(this::commonSetup);
         NeoForge.EVENT_BUS.register(this);
 
+        ModCreativeModeTabs.register(modEventBus);
+
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
+
 
 
         modEventBus.addListener(this::addCreative);
