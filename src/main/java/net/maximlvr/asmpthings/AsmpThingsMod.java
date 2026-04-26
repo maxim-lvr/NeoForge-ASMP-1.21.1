@@ -1,5 +1,8 @@
 package net.maximlvr.asmpthings;
 
+import net.maximlvr.asmpthings.block.ModBlocks;
+import net.maximlvr.asmpthings.item.ModItems;
+import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -23,11 +26,13 @@ public class AsmpThingsMod {
     public AsmpThingsMod(IEventBus modEventBus, ModContainer modContainer) {
 
         modEventBus.addListener(this::commonSetup);
-
         NeoForge.EVENT_BUS.register(this);
 
-        modEventBus.addListener(this::addCreative);
+        ModItems.register(modEventBus);
+        ModBlocks.register(modEventBus);
 
+
+        modEventBus.addListener(this::addCreative);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
@@ -37,7 +42,13 @@ public class AsmpThingsMod {
 
     // Add the example block item to the building blocks tab
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
+        if(event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
+            event.accept(ModItems.CORONA);
 
+        }
+        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
+            event.accept(ModBlocks.BISMUTH_BLOCK);
+        }
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
