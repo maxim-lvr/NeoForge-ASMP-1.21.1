@@ -23,7 +23,6 @@ public class ModCreativeModeTabs {
                     .displayItems((itemDisplayParameters, output) -> {
                         output.accept(ModItems.CORONA);
                         output.accept(ModBlocks.BISMUTH_BLOCK);
-
                     }).build());
 
     public static void register(IEventBus eventBus){
