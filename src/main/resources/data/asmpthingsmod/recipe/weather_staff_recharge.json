@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "asmpthingsmod:weather_staff"
+
+    },
+    {
+      "item": "asmpthingsmod:weather_tank"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "asmpthingsmod:weather_staff"
+  }
+}

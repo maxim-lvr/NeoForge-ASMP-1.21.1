@@ -22,7 +22,11 @@ public class ModCreativeModeTabs {
                     .title(Component.translatable("creativetab.asmpthingsmod.corona_items"))
                     .displayItems((itemDisplayParameters, output) -> {
                         output.accept(ModItems.CORONA);
-                        output.accept(ModBlocks.BISMUTH_BLOCK);
+                        output.accept(ModItems.CRAZY_COIN);
+                        output.accept(ModItems.WEATHER_STAFF);
+                        output.accept(ModItems.WEATHER_TANK);
+
+                        output.accept(ModBlocks.MAGIC_BLOCK);
                     }).build());
 
     public static void register(IEventBus eventBus){
