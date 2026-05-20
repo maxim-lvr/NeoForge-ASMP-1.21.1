@@ -16,6 +16,9 @@ public class ModItems {
     public static final DeferredItem<Item> CRAZY_COIN = ITEMS.register("crazy_coin",
             () -> new Item(new Item.Properties()));
 
+    public static final DeferredItem<Item> GOLDEN_NUT = ITEMS.register("golden_nut",
+            () -> new Item(new Item.Properties()));
+
     public static final DeferredItem<Item> WEATHER_STAFF = ITEMS.register("weather_staff",
             () -> new WeatherStaff(new Item.Properties().durability(32)));
 

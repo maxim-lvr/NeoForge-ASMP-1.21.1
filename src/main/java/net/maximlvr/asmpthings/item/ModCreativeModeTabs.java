@@ -18,11 +18,12 @@ public class ModCreativeModeTabs {
 
 
     public static final Supplier<CreativeModeTab> CORONA_ITEMS_TAB = CREATIVE_MODE_TAB.register("asmp_item_tab",
-            () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModItems.CORONA.get()))
+            () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModItems.CRAZY_COIN.get()))
                     .title(Component.translatable("creativetab.asmpthingsmod.corona_items"))
                     .displayItems((itemDisplayParameters, output) -> {
                         output.accept(ModItems.CORONA);
                         output.accept(ModItems.CRAZY_COIN);
+                        output.accept(ModItems.GOLDEN_NUT);
                         output.accept(ModItems.WEATHER_STAFF);
                         output.accept(ModItems.WEATHER_TANK);
 
