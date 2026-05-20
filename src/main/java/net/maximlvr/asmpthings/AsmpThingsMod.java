@@ -1,8 +1,10 @@
 package net.maximlvr.asmpthings;
 
 import net.maximlvr.asmpthings.block.ModBlocks;
+import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
 import net.maximlvr.asmpthings.item.ModItems;
+import net.maximlvr.asmpthings.network.ModNetworking;
 import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
 
@@ -32,6 +34,8 @@ public class AsmpThingsMod {
         ModCreativeModeTabs.register(modEventBus);
 
         ModItems.register(modEventBus);
+        ModDataComponents.register(modEventBus);
+        ModNetworking.register(modEventBus);
         ModBlocks.register(modEventBus);
 
 

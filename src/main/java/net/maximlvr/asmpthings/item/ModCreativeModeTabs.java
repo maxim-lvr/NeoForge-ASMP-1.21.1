@@ -26,8 +26,10 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.GOLDEN_NUT);
                         output.accept(ModItems.WEATHER_STAFF);
                         output.accept(ModItems.WEATHER_TANK);
+                        output.accept(ModItems.GOAL_SMALL_TICKET);
 
                         output.accept(ModBlocks.MAGIC_BLOCK);
+
                     }).build());
 
     public static void register(IEventBus eventBus){

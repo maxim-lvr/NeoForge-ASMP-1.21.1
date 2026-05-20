@@ -1,6 +1,8 @@
 package net.maximlvr.asmpthings.item;
 
 import net.maximlvr.asmpthings.AsmpThingsMod;
+import net.maximlvr.asmpthings.component.ModDataComponents;
+import net.maximlvr.asmpthings.item.custom.ScratchTicketItem;
 import net.maximlvr.asmpthings.item.custom.WeatherStaff;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -24,6 +26,14 @@ public class ModItems {
 
     public static final DeferredItem<Item> WEATHER_TANK = ITEMS.register("weather_tank",
             () -> new Item(new Item.Properties()));
+
+    public static final DeferredItem<Item> GOAL_SMALL_TICKET = ITEMS.register("card_goal_small",
+            () -> new ScratchTicketItem(
+                    new Item.Properties()
+                            .stacksTo(1)
+                            .component(ModDataComponents.SCRATCH_DATA.get(), "")
+                            .component(ModDataComponents.SCRATCH_PRIZE.get(), -1)
+            ));
 
 
     public static void register(IEventBus eventBus) {
