@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hw_008_heartrate_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/hw_008_hr_screen",
     "particle": "asmpthingsmod:block/hw_008_hr_screen",

@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hw_002_trolley_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/hw_002_trolley_texture",
     "particle": "asmpthingsmod:block/hw_002_trolley_texture",

@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hr_005_xray_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/hr_005_xray_main",
     "particle": "asmpthingsmod:block/hr_005_xray_main",

@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/pt_014_counter1_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/pt_014_counter1_texture",
     "particle": "asmpthingsmod:block/pt_014_counter1_texture",

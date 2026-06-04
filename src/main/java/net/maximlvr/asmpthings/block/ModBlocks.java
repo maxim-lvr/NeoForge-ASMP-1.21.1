@@ -191,12 +191,6 @@ public class ModBlocks {
                     .isRedstoneConductor((bs, br, bp) -> false)
             ));
 
-
-
-
-
-
-
     public static final DeferredBlock<Block> X_RAY_LIGHT_BLOCK = registerBlock("x_ray_light",
             () -> new XRayLightBlock(BlockBehaviour.Properties.of()
                     .sound(SoundType.METAL)
@@ -206,6 +200,7 @@ public class ModBlocks {
                     .emissiveRendering((bs, br, bp) -> true)
                     .isRedstoneConductor((bs, br, bp) -> false)
             ));
+
     public static final DeferredBlock<Block> X_RAY_MACHINE_BLOCK = registerBlock("x_ray_machine",
             () -> new XRayMachineBlock(BlockBehaviour.Properties.of()
                     .sound(SoundType.METAL)
@@ -215,6 +210,7 @@ public class ModBlocks {
                     .emissiveRendering((bs, br, bp) -> true)
                     .isRedstoneConductor((bs, br, bp) -> false)
             ));
+
     public static final DeferredBlock<Block> X_RAY_BUCKY_STAND_BLOCK = registerBlock("xray_bucky_stand",
             () -> new XRayBuckyStandBlock(BlockBehaviour.Properties.of()
                     .sound(SoundType.METAL)
@@ -224,6 +220,7 @@ public class ModBlocks {
                     .emissiveRendering((bs, br, bp) -> true)
                     .isRedstoneConductor((bs, br, bp) -> false)
             ));
+
     public static final DeferredBlock<Block> X_RAY_LIGHT_BOX_ARMS_BLOCK = registerBlock("xray_light_box_arms",
             () -> new XRayLightBoxArmsBlock(BlockBehaviour.Properties.of()
                     .sound(SoundType.METAL)
@@ -233,6 +230,7 @@ public class ModBlocks {
                     .emissiveRendering((bs, br, bp) -> true)
                     .isRedstoneConductor((bs, br, bp) -> false)
             ));
+
     public static final DeferredBlock<Block> X_RAY_LIGHT_BOX_BLANK_BLOCK = registerBlock("xray_light_box_blank",
             () -> new XRayLightBoxBlankBlock(BlockBehaviour.Properties.of()
                     .sound(SoundType.METAL)

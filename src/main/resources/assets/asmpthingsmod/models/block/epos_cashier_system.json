@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/pt_011_pos_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/pt_011_pos_base_texture",
     "particle": "asmpthingsmod:block/pt_011_pos_base_texture",

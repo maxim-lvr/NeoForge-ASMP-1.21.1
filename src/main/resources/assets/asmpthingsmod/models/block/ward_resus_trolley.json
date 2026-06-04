@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hw_009_resus_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/hw_009_resus_label",
     "particle": "asmpthingsmod:block/hw_009_resus_label",

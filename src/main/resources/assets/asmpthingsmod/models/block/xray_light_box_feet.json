@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hr_004_light_box_modelfeet",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/hr_004_light_blank",
     "particle": "asmpthingsmod:block/hr_004_light_blank",

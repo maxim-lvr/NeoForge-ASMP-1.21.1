@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hw004_bed_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/hw_004_hospital_bed_texture",
     "particle": "asmpthingsmod:block/hw_004_hospital_bed_texture",

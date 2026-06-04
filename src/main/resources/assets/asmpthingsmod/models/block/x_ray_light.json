@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/x_ray_light_3",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/xray_controlled_light",
     "particle": "asmpthingsmod:block/xray_controlled_light",

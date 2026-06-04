@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hmxt_ultrasound_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/ultrasound_keyboard",
     "particle": "asmpthingsmod:block/ultrasound_keyboard",

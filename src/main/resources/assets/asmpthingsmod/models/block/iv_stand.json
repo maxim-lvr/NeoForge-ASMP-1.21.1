@@ -1,5 +1,6 @@
 {
   "parent": "asmpthingsmod:custom/hw_005_iv_model",
+  "ambientocclusion": false,
   "textures": {
     "all": "asmpthingsmod:block/hw_005_iv_texture",
     "particle": "asmpthingsmod:block/hw_005_iv_texture",
