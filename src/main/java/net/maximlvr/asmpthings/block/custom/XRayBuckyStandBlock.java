@@ -20,22 +20,22 @@ public class XRayBuckyStandBlock extends Block {
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
     private static final VoxelShape SHAPE_NORTH = Block.box(
             0.0D, 0.0D, 8.0D,
-            16.0D, 16.0D, 16.0D
+            16.0D, 32.0D, 16.0D
     );
 
     private static final VoxelShape SHAPE_SOUTH = Block.box(
             0.0D, 0.0D, 0.0D,
-            16.0D, 16.0D, 8.0D
+            16.0D, 32.0D, 8.0D
     );
 
     private static final VoxelShape SHAPE_EAST = Block.box(
             0.0D, 0.0D, 0.0D,
-            8.0D, 16.0D, 16.0D
+            8.0D, 32.0D, 16.0D
     );
 
     private static final VoxelShape SHAPE_WEST = Block.box(
             8.0D, 0.0D, 0.0D,
-            16.0D, 16.0D, 16.0D
+            16.0D, 32.0D, 16.0D
     );
 
     public XRayBuckyStandBlock(Properties properties) {

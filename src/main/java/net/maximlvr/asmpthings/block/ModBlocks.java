@@ -270,6 +270,66 @@ public class ModBlocks {
                     .isRedstoneConductor((bs, br, bp) -> false)
             ));
 
+    public static final DeferredBlock<Block> WARD_RESUS_TROLLEY_BLOCK = registerBlock("ward_resus_trolley",
+            () -> new WardResusTrolleyBlock(BlockBehaviour.Properties.of()
+                    .sound(SoundType.METAL)
+                    .strength(1f, 10f)
+                    .noOcclusion()
+                    .hasPostProcess((bs, br, bp) -> true)
+                    .emissiveRendering((bs, br, bp) -> true)
+                    .isRedstoneConductor((bs, br, bp) -> false)
+            ));
+
+    public static final DeferredBlock<Block> WARD_STORAGE_DRAWERS_BLOCK = registerBlock("ward_storage_drawers",
+            () -> new WardStorageDrawersBlock(BlockBehaviour.Properties.of()
+                    .sound(SoundType.METAL)
+                    .strength(1f, 10f)
+                    .noOcclusion()
+                    .hasPostProcess((bs, br, bp) -> true)
+                    .emissiveRendering((bs, br, bp) -> true)
+                    .isRedstoneConductor((bs, br, bp) -> false)
+            ));
+
+    public static final DeferredBlock<Block> HOSPITAL_BED_BLOCK = registerBlock("hospital_bed",
+            () -> new HospitalBedBlock(BlockBehaviour.Properties.of()
+                    .sound(SoundType.METAL)
+                    .strength(1f, 10f)
+                    .noOcclusion()
+                    .hasPostProcess((bs, br, bp) -> true)
+                    .emissiveRendering((bs, br, bp) -> true)
+                    .isRedstoneConductor((bs, br, bp) -> false)
+            ));
+
+    public static final DeferredBlock<Block> IV_STAND_BLOCK = registerBlock("iv_stand",
+            () -> new IvStandBlock(BlockBehaviour.Properties.of()
+                    .sound(SoundType.METAL)
+                    .strength(1f, 10f)
+                    .noOcclusion()
+                    .hasPostProcess((bs, br, bp) -> true)
+                    .emissiveRendering((bs, br, bp) -> true)
+                    .isRedstoneConductor((bs, br, bp) -> false)
+            ));
+
+    public static final DeferredBlock<Block> HEART_RATE_MONITOR_BLOCK = registerBlock("heart_rate_monitor",
+            () -> new HearRateMonitorBlock(BlockBehaviour.Properties.of()
+                    .sound(SoundType.METAL)
+                    .strength(1f, 10f)
+                    .noOcclusion()
+                    .hasPostProcess((bs, br, bp) -> true)
+                    .emissiveRendering((bs, br, bp) -> true)
+                    .isRedstoneConductor((bs, br, bp) -> false)
+            ));
+
+    public static final DeferredBlock<Block> HAND_SANITISER_DISPENSER_BLOCK = registerBlock("hand_sanitiser_dispenser",
+            () -> new HandSanitizerDispenserBlock(BlockBehaviour.Properties.of()
+                    .sound(SoundType.METAL)
+                    .strength(1f, 10f)
+                    .noOcclusion()
+                    .hasPostProcess((bs, br, bp) -> true)
+                    .emissiveRendering((bs, br, bp) -> true)
+                    .isRedstoneConductor((bs, br, bp) -> false)
+            ));
+
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);

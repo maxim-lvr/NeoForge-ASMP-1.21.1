@@ -62,6 +62,12 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.X_RAY_LIGHT_BOX_CHEST_BLOCK);
                         output.accept(ModBlocks.X_RAY_LIGHT_BOX_FEET_BLOCK);
                         output.accept(ModBlocks.X_RAY_LIGHT_BOX_NECK_BLOCK);
+                        output.accept(ModBlocks.WARD_RESUS_TROLLEY_BLOCK);
+                        output.accept(ModBlocks.WARD_STORAGE_DRAWERS_BLOCK);
+                        output.accept(ModBlocks.HOSPITAL_BED_BLOCK);
+                        output.accept(ModBlocks.IV_STAND_BLOCK);
+                        output.accept(ModBlocks.HEART_RATE_MONITOR_BLOCK);
+                        output.accept(ModBlocks.HAND_SANITISER_DISPENSER_BLOCK);
 
 
                     }).build());

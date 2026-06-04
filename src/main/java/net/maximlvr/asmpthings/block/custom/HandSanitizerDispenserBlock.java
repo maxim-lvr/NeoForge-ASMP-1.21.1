@@ -15,30 +15,30 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-public class OperatingTableBlock extends Block {
+public class HandSanitizerDispenserBlock extends Block {
 
     public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
     private static final VoxelShape SHAPE_NORTH = Block.box(
-            0.0D, 0.0D, 0.0D,
-            16.0D, 16.0D, 32.0D
+            0.0D, 0.0D, 13.0D,
+            16.0D, 16.0D, 16.0D
     );
 
     private static final VoxelShape SHAPE_SOUTH = Block.box(
-            0.0D, 0.0D, -16.0D,
-            16.0D, 16.0D, 16.0D
+            0.0D, 0.0D, 0.0D,
+            16.0D, 16.0D, 3.0D
     );
 
     private static final VoxelShape SHAPE_EAST = Block.box(
-            -16.0D, 0.0D, 0.0D,
-            16.0D, 16.0D, 16.0D
+            0.0D, 0.0D, 0.0D,
+            3.0D, 16.0D, 16.0D
     );
 
     private static final VoxelShape SHAPE_WEST = Block.box(
-            0.0D, 0.0D, 0.0D,
-            32.0D, 16.0D, 16.0D
+            13.0D, 0.0D, 0.0D,
+            16.0D, 16.0D, 16.0D
     );
 
-    public OperatingTableBlock(Properties properties) {
+    public HandSanitizerDispenserBlock(Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH));
     }

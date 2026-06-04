@@ -1,0 +1,9 @@
+{
+  "parent": "asmpthingsmod:custom/hw_005_iv_model",
+  "textures": {
+    "all": "asmpthingsmod:block/hw_005_iv_texture",
+    "particle": "asmpthingsmod:block/hw_005_iv_texture",
+    "hw_005_iv_texture": "asmpthingsmod:block/hw_005_iv_texture"
+  },
+  "render_type": "solid"
+}

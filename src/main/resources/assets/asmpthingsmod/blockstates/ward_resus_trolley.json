@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "asmpthingsmod:block/ward_resus_trolley"
+    },
+    "facing=east": {
+      "model": "asmpthingsmod:block/ward_resus_trolley",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "asmpthingsmod:block/ward_resus_trolley",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "asmpthingsmod:block/ward_resus_trolley",
+      "y": 270
+    }
+  }
+}
