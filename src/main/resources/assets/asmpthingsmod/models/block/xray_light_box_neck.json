@@ -1,0 +1,10 @@
+{
+  "parent": "asmpthingsmod:custom/hr_004_light_box_modelneck",
+  "textures": {
+    "all": "asmpthingsmod:block/hr_004_light_blank",
+    "particle": "asmpthingsmod:block/hr_004_light_blank",
+    "hr_004_light_blank": "asmpthingsmod:block/hr_004_light_neck",
+    "hr_004_light_box_main": "asmpthingsmod:block/hr_004_light_box_main"
+  },
+  "render_type": "solid"
+}

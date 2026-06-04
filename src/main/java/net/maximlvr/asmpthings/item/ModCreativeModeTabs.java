@@ -28,8 +28,6 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.WEATHER_TANK);
                         output.accept(ModItems.GOAL_SMALL_TICKET);
 
-                        output.accept(ModBlocks.MAGIC_BLOCK);
-
                     }).build());
 
     public static final Supplier<CreativeModeTab> HOSPITAL_ITEM_TAB = CREATIVE_MODE_TAB.register("hospital_item_tab",
@@ -55,6 +53,15 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.SURGICAL_LAMP_BLOCK);
                         output.accept(ModBlocks.SURGICAL_INSTRUMENT_TROLLEY_BLOCK);
                         output.accept(ModBlocks.SURGICAL_TROLLEY_BLOCK);
+
+                        output.accept(ModBlocks.X_RAY_MACHINE_BLOCK);
+                        output.accept(ModBlocks.X_RAY_LIGHT_BLOCK);
+                        output.accept(ModBlocks.X_RAY_BUCKY_STAND_BLOCK);
+                        output.accept(ModBlocks.X_RAY_LIGHT_BOX_ARMS_BLOCK);
+                        output.accept(ModBlocks.X_RAY_LIGHT_BOX_BLANK_BLOCK);
+                        output.accept(ModBlocks.X_RAY_LIGHT_BOX_CHEST_BLOCK);
+                        output.accept(ModBlocks.X_RAY_LIGHT_BOX_FEET_BLOCK);
+                        output.accept(ModBlocks.X_RAY_LIGHT_BOX_NECK_BLOCK);
 
 
                     }).build());
