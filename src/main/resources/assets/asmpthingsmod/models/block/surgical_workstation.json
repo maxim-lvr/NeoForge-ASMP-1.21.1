@@ -1,0 +1,15 @@
+{
+  "parent": "asmpthingsmod:custom/hmxt_workstation_model",
+  "ambientocclusion": false,
+  "textures": {
+    "all": "asmpthingsmod:block/workstation_texture",
+    "particle": "asmpthingsmod:block/workstation_texture",
+    "machine3_texture": "asmpthingsmod:block/machine3_texture",
+    "anaesthetic_screen_texture": "asmpthingsmod:block/anaesthetic_screen_texture",
+    "machine2_texture": "asmpthingsmod:block/machine2_texture",
+    "machine1_texture": "asmpthingsmod:block/machine1_texture",
+    "computer_texture": "asmpthingsmod:block/computer_texture",
+    "workstation_texture": "asmpthingsmod:block/workstation_texture"
+  },
+  "render_type": "solid"
+}

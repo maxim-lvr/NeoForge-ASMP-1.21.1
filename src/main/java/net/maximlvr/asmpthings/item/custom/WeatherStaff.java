@@ -30,7 +30,7 @@ public class WeatherStaff extends Item {
         }
 
         if (serverLevel.isRaining()) {
-            serverLevel.setWeatherParameters(6000, 0, false, false);
+            serverLevel.setWeatherParameters(18000, 0, false, false);
         } else {
             serverLevel.setWeatherParameters(0, 6000, true, false);
         }

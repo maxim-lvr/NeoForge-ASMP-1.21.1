@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "asmpthingsmod:block/bedside_head_unit"
+    },
+    "facing=east": {
+      "model": "asmpthingsmod:block/bedside_head_unit",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "asmpthingsmod:block/bedside_head_unit",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "asmpthingsmod:block/bedside_head_unit",
+      "y": 270
+    }
+  }
+}

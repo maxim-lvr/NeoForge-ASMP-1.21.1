@@ -1,0 +1,13 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "down": "asmpthingsmod:block/baby_blue_x_tiles_tx",
+    "up": "asmpthingsmod:block/baby_blue_x_tiles_tx",
+    "north": "asmpthingsmod:block/baby_blue_x_tiles_tx",
+    "east": "asmpthingsmod:block/baby_blue_x_tiles_tx",
+    "south": "asmpthingsmod:block/baby_blue_x_tiles_tx",
+    "west": "asmpthingsmod:block/baby_blue_x_tiles_tx",
+    "particle": "asmpthingsmod:block/baby_blue_x_tiles_tx"
+  },
+  "render_type": "solid"
+}

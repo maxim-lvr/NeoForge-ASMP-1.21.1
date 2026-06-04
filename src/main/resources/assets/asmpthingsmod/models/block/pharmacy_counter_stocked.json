@@ -1,0 +1,24 @@
+{
+  "parent": "asmpthingsmod:custom/pt_014_counter1_model",
+  "textures": {
+    "all": "asmpthingsmod:block/pt_014_counter1_texture",
+    "particle": "asmpthingsmod:block/pt_014_counter1_texture",
+    "pm_002_panadol": "asmpthingsmod:block/pm_002_panadol",
+    "pm_002_ibuprofen": "asmpthingsmod:block/pm_002_ibuprofen",
+    "pt_014_counter1_texture": "asmpthingsmod:block/pt_014_counter1_texture",
+    "pm_002_calpol2": "asmpthingsmod:block/pm_002_calpol2",
+    "pm_002_advil": "asmpthingsmod:block/pm_002_advil",
+    "pm_002_paracetamol": "asmpthingsmod:block/pm_002_paracetamol",
+    "pm_002_goodys": "asmpthingsmod:block/pm_002_goodys",
+    "pm_002_codeine": "asmpthingsmod:block/pm_002_codeine",
+    "pm_002_co-codamol": "asmpthingsmod:block/pm_002_co-codamol",
+    "pm_002_galpharm": "asmpthingsmod:block/pm_002_galpharm",
+    "pm_002_nurofenplus": "asmpthingsmod:block/pm_002_nurofenplus",
+    "missing": "asmpthingsmod:block/pm_002_calpol3",
+    "pm_002_aspirin": "asmpthingsmod:block/pm_002_aspirin",
+    "pm_002_calpol": "asmpthingsmod:block/pm_002_calpol",
+    "pm_002_nurofen": "asmpthingsmod:block/pm_002_nurofen",
+    "pm_002_anadin": "asmpthingsmod:block/pm_002_anadin"
+  },
+  "render_type": "solid"
+}

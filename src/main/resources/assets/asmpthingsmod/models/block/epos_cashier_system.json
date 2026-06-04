@@ -1,0 +1,12 @@
+{
+  "parent": "asmpthingsmod:custom/pt_011_pos_model",
+  "textures": {
+    "all": "asmpthingsmod:block/pt_011_pos_base_texture",
+    "particle": "asmpthingsmod:block/pt_011_pos_base_texture",
+    "pt_011_pos_base_texture": "asmpthingsmod:block/pt_011_pos_base_texture",
+    "pt_011_pos_reader_texture": "asmpthingsmod:block/pt_011_pos_reader_texture",
+    "pt_011_pos_screen_texture": "asmpthingsmod:block/pt_011_pos_screen_texture",
+    "pt_011_pos_screen_os_texture": "asmpthingsmod:block/pt_011_pos_screen_os_texture"
+  },
+  "render_type": "solid"
+}

@@ -17,7 +17,7 @@ public class ModCreativeModeTabs {
         DeferredRegister.create(Registries.CREATIVE_MODE_TAB, AsmpThingsMod.MOD_ID);
 
 
-    public static final Supplier<CreativeModeTab> CORONA_ITEMS_TAB = CREATIVE_MODE_TAB.register("asmp_item_tab",
+    public static final Supplier<CreativeModeTab> ASMP_ITEMS_TAB = CREATIVE_MODE_TAB.register("asmp_item_tab",
             () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModItems.CRAZY_COIN.get()))
                     .title(Component.translatable("creativetab.asmpthingsmod.corona_items"))
                     .displayItems((itemDisplayParameters, output) -> {
@@ -29,6 +29,33 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.GOAL_SMALL_TICKET);
 
                         output.accept(ModBlocks.MAGIC_BLOCK);
+
+                    }).build());
+
+    public static final Supplier<CreativeModeTab> HOSPITAL_ITEM_TAB = CREATIVE_MODE_TAB.register("hospital_item_tab",
+            () -> CreativeModeTab.builder().icon(() -> new ItemStack(ModBlocks.ANAESTHETIC_MACHINE_BLOCK.get()))
+                    .title(Component.translatable("creativetab.asmpthingsmod.hospital_item"))
+                    .displayItems((itemDisplayParameters, output) -> {
+
+                        output.accept(ModBlocks.ANAESTHETIC_MACHINE_BLOCK);
+                        output.accept(ModBlocks.ANALYTICAL_BALANCE_BLOCK);
+                        output.accept(ModBlocks.BLOCK_OF_STAINLESS_STEEL_BLOCK);
+                        output.accept(ModBlocks.BABYBLUEXTILES_BLOCK);
+                        output.accept(ModBlocks.BEDSIDE_HEAD_UNIT);
+                        output.accept(ModBlocks.EPOS_CASHIER_SYSTEM_BLOCK);
+                        output.accept(ModBlocks.ILLUMINATED_PHARMACY_SIGN_BLOCK);
+                        output.accept(ModBlocks.COMPUTER_CT_SCAN_VIEWER_BLOCK);
+                        output.accept(ModBlocks.COMPUTER_X_RAY_VIEWER_BLOCK);
+                        output.accept(ModBlocks.OPERATING_TABLE_BLOCK);
+                        output.accept(ModBlocks.PHARMACY_COUNTER_STOCKED_BLOCK);
+                        output.accept(ModBlocks.REFRIDGERATED_CENTRIFUGE_BLOCK);
+                        output.accept(ModBlocks.ULTRASOUND_BLOCK);
+                        output.accept(ModBlocks.SURGICAL_WORKSTATION_BLOCK);
+                        output.accept(ModBlocks.SURGICAL_INSTRUMENTS_BLOCK);
+                        output.accept(ModBlocks.SURGICAL_LAMP_BLOCK);
+                        output.accept(ModBlocks.SURGICAL_INSTRUMENT_TROLLEY_BLOCK);
+                        output.accept(ModBlocks.SURGICAL_TROLLEY_BLOCK);
+
 
                     }).build());
 

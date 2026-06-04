@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "asmpthingsmod:block/analytical_balance"
+    },
+    "facing=east": {
+      "model": "asmpthingsmod:block/analytical_balance",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "asmpthingsmod:block/analytical_balance",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "asmpthingsmod:block/analytical_balance",
+      "y": 270
+    }
+  }
+}

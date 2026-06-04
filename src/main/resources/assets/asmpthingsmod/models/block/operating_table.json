@@ -1,0 +1,10 @@
+{
+  "parent": "asmpthingsmod:custom/hmxt_or_table_model",
+  "ambientocclusion": false,
+  "textures": {
+    "all": "asmpthingsmod:block/or_table_texture",
+    "particle": "asmpthingsmod:block/or_table_texture",
+    "OR_Table_Texture": "asmpthingsmod:block/or_table_texture"
+  },
+  "render_type": "solid"
+}

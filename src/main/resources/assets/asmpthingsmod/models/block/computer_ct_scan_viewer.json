@@ -1,0 +1,11 @@
+{
+  "parent": "asmpthingsmod:custom/hr_007_xray1_model",
+  "textures": {
+    "all": "asmpthingsmod:block/hr_007_ct_viewer_1",
+    "particle": "asmpthingsmod:block/hr_007_ct_viewer_1",
+    "hw_007_keyboard": "asmpthingsmod:block/hw_007_keyboard",
+    "hr_007_computer_main": "asmpthingsmod:block/hr_007_computer_main",
+    "hr_007_xray_viewer": "asmpthingsmod:block/hr_007_ct_viewer_1"
+  },
+  "render_type": "solid"
+}

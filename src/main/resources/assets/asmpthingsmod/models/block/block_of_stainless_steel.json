@@ -1,0 +1,13 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "down": "asmpthingsmod:block/stainlesssteeltx",
+    "up": "asmpthingsmod:block/stainlesssteeltx",
+    "north": "asmpthingsmod:block/stainlesssteeltx",
+    "east": "asmpthingsmod:block/stainlesssteeltx",
+    "south": "asmpthingsmod:block/stainlesssteeltx",
+    "west": "asmpthingsmod:block/stainlesssteeltx",
+    "particle": "asmpthingsmod:block/stainlesssteeltx"
+  },
+  "render_type": "solid"
+}
