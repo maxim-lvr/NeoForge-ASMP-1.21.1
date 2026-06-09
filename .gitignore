@@ -41,3 +41,10 @@ repo/
 /saves/
 /config/
 /downloads/
+/logs/
+/usernamecache.json
+/usercache.json
+/servers.dat_old
+/servers.dat
+/options.txt
+/command_history.txt
