@@ -2,6 +2,7 @@ package net.maximlvr.asmpthings;
 
 import net.maximlvr.asmpthings.ai.AiNpcChatHandler;
 import net.maximlvr.asmpthings.block.ModBlocks;
+import net.maximlvr.asmpthings.client.ModItemProperties;
 import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
 import net.maximlvr.asmpthings.item.ModItems;
@@ -29,8 +30,11 @@ public class AsmpThingsMod {
     public AsmpThingsMod(IEventBus modEventBus, ModContainer modContainer) {
 
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(ModItemProperties::onClientSetup);
+
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.register(new AiNpcChatHandler());
+
 
         ModCreativeModeTabs.register(modEventBus);
 

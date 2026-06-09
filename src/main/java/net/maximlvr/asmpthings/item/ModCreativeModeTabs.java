@@ -28,6 +28,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.WEATHER_STAFF);
                         output.accept(ModItems.WEATHER_TANK);
                         output.accept(ModItems.GOAL_SMALL_TICKET);
+                        output.accept(ModItems.ROLE_CARD);
 
                     }).build());
 

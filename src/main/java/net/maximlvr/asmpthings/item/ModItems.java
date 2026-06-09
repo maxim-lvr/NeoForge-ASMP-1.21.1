@@ -38,6 +38,10 @@ public class ModItems {
                             .component(ModDataComponents.SCRATCH_PRIZE.get(), -1)
             ));
 
+    public static final DeferredItem<Item> ROLE_CARD = ITEMS.register("role_card",
+            () -> new Item(new Item.Properties()
+                    .stacksTo(1)
+                    .component(ModDataComponents.ROLE_CARD_TYPE.get(), 0)));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);

@@ -30,6 +30,13 @@ public class ModDataComponents {
                             .networkSynchronized(ByteBufCodecs.VAR_INT)
             );
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> ROLE_CARD_TYPE =
+            DATA_COMPONENTS.registerComponentType("role_card_type",
+                    builder -> builder
+                            .persistent(Codec.INT)
+                            .networkSynchronized(ByteBufCodecs.INT)
+            );
+
     public static void register(IEventBus eventBus) {
         DATA_COMPONENTS.register(eventBus);
     }
