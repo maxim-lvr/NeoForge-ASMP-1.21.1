@@ -1,11 +1,11 @@
 package net.maximlvr.asmpthings;
 
+import net.maximlvr.asmpthings.ai.AiNpcChatHandler;
 import net.maximlvr.asmpthings.block.ModBlocks;
 import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
 import net.maximlvr.asmpthings.item.ModItems;
 import net.maximlvr.asmpthings.network.ModNetworking;
-import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -30,6 +30,7 @@ public class AsmpThingsMod {
 
         modEventBus.addListener(this::commonSetup);
         NeoForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.register(new AiNpcChatHandler());
 
         ModCreativeModeTabs.register(modEventBus);
 
