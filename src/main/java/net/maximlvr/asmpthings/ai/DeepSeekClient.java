@@ -27,7 +27,7 @@ public class DeepSeekClient {
     });
 
     public static CompletableFuture<String> askNpcTurnAsync(String npcName, String systemPrompt, String userPrompt) {
-        return CompletableFuture.supplyAsync(() -> askBlocking(npcName, systemPrompt, userPrompt, 900), AI_EXECUTOR);
+        return CompletableFuture.supplyAsync(() -> askBlocking(npcName, systemPrompt, userPrompt, 1600), AI_EXECUTOR);
     }
 
     private static String askBlocking(String npcName, String systemPrompt, String userPrompt, int maxTokens) {
@@ -107,7 +107,7 @@ public class DeepSeekClient {
                       "content": "%s"
                     }
                   ],
-                  "temperature": 0.7,
+                  "temperature": 0.6,
                   "max_tokens": %d,
                   "stream": false
                 }

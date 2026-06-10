@@ -19,6 +19,7 @@ import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,19 +30,20 @@ public class AiNpcChatHandler {
 
     private static final Gson GSON = new Gson();
 
-    private static final double TALK_DISTANCE = 8.0D;
+    private static final double TALK_DISTANCE = 50.0D;
+    private static final double LOCAL_CHAT_DISTANCE = 50.0D;
+    private static final double LOCAL_CHAT_DISTANCE_SQR = LOCAL_CHAT_DISTANCE * LOCAL_CHAT_DISTANCE;
+
     private static final int BUBBLE_DURATION_TICKS = 100;
     private static final int BUBBLE_MAX_LENGTH = 80;
 
-    private static final Set<String> AI_NPC_NAMES = Set.of(
-            "test",
-            "test2GPT",
-            "test3GPT"
-    );
-
     private final Map<UUID, AiNpcMemory> memories = new HashMap<>();
     private final Map<UUID, NameBubbleState> activeNameBubbles = new HashMap<>();
+    private final Set<UUID> playersWaitingForNpcResponse = new HashSet<>();
+
     private final AiNpcPlayerMemoryStore playerMemoryStore = new AiNpcPlayerMemoryStore();
+    private final AiNpcPersonalityStore personalityStore = new AiNpcPersonalityStore();
+    private final AiNpcGeneralMemoryStore generalMemoryStore = new AiNpcGeneralMemoryStore();
 
     @SubscribeEvent
     public void onServerChat(ServerChatEvent event) {
@@ -57,6 +59,7 @@ public class AiNpcChatHandler {
         String[] parts = rawMessage.split(" ", 2);
 
         if (parts.length < 2) {
+            event.setCanceled(true);
             player.sendSystemMessage(Component.literal("§cUtilisation : @test ton message"));
             return;
         }
@@ -64,7 +67,16 @@ public class AiNpcChatHandler {
         String targetName = parts[0].substring(1);
         String playerMessage = parts[1].trim();
 
-        if (!AI_NPC_NAMES.contains(targetName)) {
+        if (!personalityStore.isAiNpcName(targetName)) {
+            return;
+        }
+
+        event.setCanceled(true);
+
+        UUID playerUuid = player.getUUID();
+
+        if (playersWaitingForNpcResponse.contains(playerUuid)) {
+            player.sendSystemMessage(Component.literal("§cMessage déjà en cours. Veuillez renvoyer après la réponse du PNJ."));
             return;
         }
 
@@ -81,7 +93,8 @@ public class AiNpcChatHandler {
             mob.getLookControl().setLookAt(player, 30.0F, 30.0F);
         }
 
-        UUID playerUuid = player.getUUID();
+        playersWaitingForNpcResponse.add(playerUuid);
+
         UUID npcUuid = targetNpc.getUUID();
         ResourceKey<Level> npcDimension = targetNpc.level().dimension();
 
@@ -93,97 +106,178 @@ public class AiNpcChatHandler {
                 player.getName().getString()
         );
 
+        String generalMemoryBeforeMessage = generalMemoryStore.exportCompactGeneralMemoryJsonForAi();
+
+        String staticKnowledge = personalityStore.exportStaticKnowledgeJsonForAi(targetName);
+
         List<String> recentConversation = memory.getRecentMessages();
 
         memory.remember(player.getName().getString() + " a dit : " + playerMessage);
 
-        int relationDelta = playerMemoryStore.updateRelationFromPlayerMessage(
+        playerMemoryStore.recordPlayerMessage(
                 targetName,
                 playerUuid,
                 player.getName().getString(),
                 playerMessage
         );
 
-        player.sendSystemMessage(Component.literal("§7Tu dis à §e" + targetName + "§7 : " + playerMessage));
-        player.sendSystemMessage(Component.literal("§8Relation avec " + targetName + " : " + formatRelationDelta(relationDelta)));
+        sendLocalMessageAroundPlayer(
+                server,
+                player,
+                Component.literal("§7" + player.getName().getString() + " dit à §e" + targetName + "§7 : " + playerMessage)
+        );
+
         player.sendSystemMessage(Component.literal("§8<" + targetName + "> réfléchit..."));
 
         AsmpThingsMod.LOGGER.info("[AI NPC] {} parle à {} : {}", player.getName().getString(), targetName, playerMessage);
-        AsmpThingsMod.LOGGER.info("[AI NPC] Relation {} -> {} delta {}", targetName, player.getName().getString(), relationDelta);
 
         if (!Config.DEEPSEEK_ENABLED.get()) {
+            playersWaitingForNpcResponse.remove(playerUuid);
+
             String errorMessage = "DeepSeek est désactivé dans la config serveur.";
-            player.sendSystemMessage(Component.literal("§c<" + targetName + "> " + errorMessage));
+            sendLocalMessageAroundEntity(
+                    server,
+                    targetNpc,
+                    Component.literal("§c<" + targetName + "> " + errorMessage)
+            );
             showTextAboveNpc(server, targetNpc, targetName, errorMessage);
             return;
         }
 
-        String systemPrompt = buildSystemPrompt(targetName);
+        String systemPrompt = personalityStore.buildSystemPrompt(targetName);
+
         String userPrompt = buildTurnPrompt(
                 player,
                 targetName,
                 playerMessage,
+                staticKnowledge,
                 profileBeforeMessage,
+                generalMemoryBeforeMessage,
                 recentConversation
         );
 
-        DeepSeekClient.askNpcTurnAsync(targetName, systemPrompt, userPrompt).thenAccept(aiResponse -> {
+        DeepSeekClient.askNpcTurnAsync(targetName, systemPrompt, userPrompt).whenComplete((aiResponse, throwable) -> {
             server.execute(() -> {
-                ServerPlayer currentPlayer = server.getPlayerList().getPlayer(playerUuid);
+                try {
+                    ServerPlayer currentPlayer = server.getPlayerList().getPlayer(playerUuid);
 
-                if (currentPlayer == null) {
-                    return;
-                }
-
-                LivingEntity currentNpc = getLivingEntityByUuid(server, npcDimension, npcUuid);
-
-                if (currentNpc == null || !currentNpc.isAlive()) {
-                    currentPlayer.sendSystemMessage(Component.literal("§c<" + targetName + "> Le PNJ n'existe plus."));
-                    return;
-                }
-
-                NpcTurnResult result = parseNpcTurnResult(aiResponse);
-
-                String finalResponse = result.reply();
-
-                if (finalResponse == null || finalResponse.isBlank()) {
-                    finalResponse = "Je n'arrive pas à formuler ma réponse.";
-                }
-
-                finalResponse = cleanResponseForChat(finalResponse);
-                String bubbleResponse = cleanResponseForBubble(finalResponse);
-
-                AiNpcMemory currentMemory = memories.computeIfAbsent(npcUuid, uuid -> new AiNpcMemory());
-                currentMemory.remember(targetName + " a répondu : " + finalResponse);
-
-                if (result.rawJson() != null && !result.rawJson().isBlank()) {
-                    AiNpcPlayerMemoryStore.ProfileUpdateResult profileUpdateResult =
-                            playerMemoryStore.applyAiProfileUpdate(
-                                    targetName,
-                                    playerUuid,
-                                    currentPlayer.getName().getString(),
-                                    result.rawJson()
-                            );
-
-                    if (profileUpdateResult.updated()) {
-                        String learned = profileUpdateResult.learnedInfo();
-
-                        if (learned != null && !learned.isBlank()) {
-                            currentPlayer.sendSystemMessage(Component.literal("§8" + targetName + " retient : " + learned));
-                            AsmpThingsMod.LOGGER.info("[AI NPC] {} met à jour la fiche de {} : {}", targetName, currentPlayer.getName().getString(), learned);
-                        } else {
-                            currentPlayer.sendSystemMessage(Component.literal("§8" + targetName + " met à jour sa fiche joueur."));
-                            AsmpThingsMod.LOGGER.info("[AI NPC] {} met à jour la fiche de {}", targetName, currentPlayer.getName().getString());
-                        }
+                    if (currentPlayer == null) {
+                        return;
                     }
+
+                    LivingEntity currentNpc = getLivingEntityByUuid(server, npcDimension, npcUuid);
+
+                    if (currentNpc == null || !currentNpc.isAlive()) {
+                        currentPlayer.sendSystemMessage(Component.literal("§c<" + targetName + "> Le PNJ n'existe plus."));
+                        return;
+                    }
+
+                    if (throwable != null) {
+                        AsmpThingsMod.LOGGER.error("[AI NPC] Erreur async pendant la réponse de {}", targetName, throwable);
+
+                        String errorMessage = "Je me suis perdu dans mes pensées. Réessaie.";
+                        sendLocalMessageAroundEntity(
+                                server,
+                                currentNpc,
+                                Component.literal("§c<" + targetName + "> " + errorMessage)
+                        );
+                        showTextAboveNpc(server, currentNpc, targetName, errorMessage);
+                        return;
+                    }
+
+                    NpcTurnResult result = parseNpcTurnResult(aiResponse);
+
+                    String finalResponse = result.reply();
+
+                    if (finalResponse == null || finalResponse.isBlank()) {
+                        finalResponse = "Je n'arrive pas à formuler ma réponse.";
+                    }
+
+                    finalResponse = cleanResponseForChat(finalResponse);
+                    String bubbleResponse = cleanResponseForBubble(finalResponse);
+
+                    AiNpcMemory currentMemory = memories.computeIfAbsent(npcUuid, uuid -> new AiNpcMemory());
+                    currentMemory.remember(targetName + " a répondu : " + finalResponse);
+
+                    if (result.rawJson() != null && !result.rawJson().isBlank()) {
+                        applyMemoryAndRelationUpdates(
+                                currentPlayer,
+                                targetName,
+                                playerUuid,
+                                result.rawJson()
+                        );
+                    }
+
+                    AsmpThingsMod.LOGGER.info("[AI NPC] {} répond via DeepSeek optimisé : {}", targetName, finalResponse);
+
+                    sendLocalMessageAroundEntity(
+                            server,
+                            currentNpc,
+                            Component.literal("§e<" + targetName + "> §f" + finalResponse)
+                    );
+
+                    showTextAboveNpc(server, currentNpc, targetName, bubbleResponse);
+
+                } finally {
+                    playersWaitingForNpcResponse.remove(playerUuid);
                 }
-
-                AsmpThingsMod.LOGGER.info("[AI NPC] {} répond via DeepSeek optimisé : {}", targetName, finalResponse);
-
-                currentPlayer.sendSystemMessage(Component.literal("§e<" + targetName + "> §f" + finalResponse));
-                showTextAboveNpc(server, currentNpc, targetName, bubbleResponse);
             });
         });
+    }
+
+    private void applyMemoryAndRelationUpdates(
+            ServerPlayer player,
+            String targetName,
+            UUID playerUuid,
+            String rawJson
+    ) {
+        AiNpcPlayerMemoryStore.ProfileUpdateResult profileUpdateResult =
+                playerMemoryStore.applyAiProfileUpdate(
+                        targetName,
+                        playerUuid,
+                        player.getName().getString(),
+                        rawJson
+                );
+
+        if (profileUpdateResult.updated()) {
+            String learned = profileUpdateResult.learnedInfo();
+
+            if (learned != null && !learned.isBlank()) {
+                AsmpThingsMod.LOGGER.info("[AI NPC] {} met à jour la fiche de {} : {}", targetName, player.getName().getString(), learned);
+            }
+        }
+
+        AiNpcGeneralMemoryStore.GeneralUpdateResult generalUpdateResult =
+                generalMemoryStore.applyAiGeneralMemoryUpdate(rawJson);
+
+        if (generalUpdateResult.updated()) {
+            String learned = generalUpdateResult.learnedInfo();
+
+            if (learned != null && !learned.isBlank()) {
+                AsmpThingsMod.LOGGER.info("[AI NPC] {} met à jour la mémoire générale : {}", targetName, learned);
+            }
+        }
+
+        String relationIntent = readNestedString(rawJson, "playerMemory", "relationIntent", "same");
+
+        AiNpcPlayerMemoryStore.RelationUpdateResult relationUpdateResult =
+                playerMemoryStore.applyRelationIntent(
+                        targetName,
+                        playerUuid,
+                        player.getName().getString(),
+                        relationIntent
+                );
+
+        if (relationUpdateResult.changed()) {
+            AsmpThingsMod.LOGGER.info(
+                    "[AI NPC] Relation {} -> {} : {} -> {} via {}",
+                    targetName,
+                    player.getName().getString(),
+                    relationUpdateResult.beforeState(),
+                    relationUpdateResult.afterState(),
+                    relationUpdateResult.intent()
+            );
+        }
     }
 
     @SubscribeEvent
@@ -211,61 +305,41 @@ public class AiNpcChatHandler {
         });
     }
 
-    private String buildSystemPrompt(String npcName) {
-        String personality = switch (npcName) {
-            case "test1GPT" -> """
-                    Tu es test1GPT.
-                    Tu es un PNJ Minecraft prudent, calme et observateur.
-                    """;
+    private void sendLocalMessageAroundPlayer(MinecraftServer server, ServerPlayer sourcePlayer, Component message) {
+        ResourceKey<Level> dimension = sourcePlayer.level().dimension();
 
-            case "test2GPT" -> """
-                    Tu es test2GPT.
-                    Tu es un PNJ Minecraft curieux, énergique et social.
-                    """;
+        for (ServerPlayer targetPlayer : server.getPlayerList().getPlayers()) {
+            if (targetPlayer.level().dimension() != dimension) {
+                continue;
+            }
 
-            case "test3GPT" -> """
-                    Tu es test3GPT.
-                    Tu es un PNJ Minecraft sérieux, organisé et stratégique.
-                    """;
+            if (targetPlayer.distanceToSqr(sourcePlayer) <= LOCAL_CHAT_DISTANCE_SQR) {
+                targetPlayer.sendSystemMessage(message);
+            }
+        }
+    }
 
-            default -> """
-                    Tu es un PNJ Minecraft.
-                    """;
-        };
+    private void sendLocalMessageAroundEntity(MinecraftServer server, Entity sourceEntity, Component message) {
+        ResourceKey<Level> dimension = sourceEntity.level().dimension();
 
-        return personality + """
-                
-                Tu dois répondre au joueur et mettre à jour sa fiche mémoire dans un seul JSON.
+        for (ServerPlayer targetPlayer : server.getPlayerList().getPlayers()) {
+            if (targetPlayer.level().dimension() != dimension) {
+                continue;
+            }
 
-                Règles de réponse :
-                - Réponds uniquement en français.
-                - Réponds comme un personnage présent dans Minecraft.
-                - Ne dis jamais que tu es une IA.
-                - Ne mentionne jamais DeepSeek, API, modèle, prompt ou système.
-                - Utilise l'ancienne fiche joueur pour te souvenir de ses informations.
-                - Ne dis pas "tu me l'as déjà dit" pour une information qui apparaît seulement dans le message actuel.
-                - Si le joueur donne une nouvelle information, réagis comme si tu venais de l'apprendre.
-                - Ne récite pas toute la fiche joueur.
-                - Adapte ton ton selon la relation.
-                
-                Règles de mémoire :
-                - Mets shouldUpdate à true uniquement si le message actuel contient une information utile, durable ou récurrente.
-                - Tu peux enregistrer les goûts, amis, ennemis, objectifs, projets, habitudes, sujets récurrents, détails personnels.
-                - Ne sauvegarde pas les salutations ou les demandes temporaires.
-                - Garde les anciennes informations utiles.
-                - Évite les doublons.
-                
-                Réponds uniquement avec un JSON valide.
-                Pas de markdown.
-                Pas de ```json.
-                """;
+            if (targetPlayer.distanceToSqr(sourceEntity) <= LOCAL_CHAT_DISTANCE_SQR) {
+                targetPlayer.sendSystemMessage(message);
+            }
+        }
     }
 
     private String buildTurnPrompt(
             ServerPlayer player,
             String npcName,
             String playerMessage,
+            String staticKnowledge,
             String profileBeforeMessage,
+            String generalMemoryBeforeMessage,
             List<String> recentConversation
     ) {
         StringBuilder recentBuilder = new StringBuilder();
@@ -284,38 +358,55 @@ public class AiNpcChatHandler {
                 - PNJ : %s
                 - Dimension : %s
                 - Position joueur : %d %d %d
-                
+
+                Personnalité persistante et connaissances fixes du PNJ :
+                %s
+
                 Ancienne fiche joueur AVANT le message actuel :
                 %s
-                
+
+                Ancienne mémoire générale AVANT le message actuel :
+                %s
+
                 Conversation récente AVANT le message actuel :
                 %s
-                
+
                 Message actuel du joueur :
                 %s
-                
-                Retourne exactement ce format :
-                
+
+                Retourne un JSON compact exactement comme ceci :
+
                 {
-                  "reply": "réponse naturelle du PNJ au joueur",
-                  "shouldUpdate": true,
-                  "playerSummary": "résumé compact du joueur, mis à jour si nécessaire",
-                  "knownFacts": [
-                    "fait connu utile"
-                  ],
-                  "recurringTopics": [
-                    "sujet récurrent"
-                  ],
-                  "importantNotes": [
-                    "note importante"
-                  ],
-                  "lastLearnedInfo": "nouvelle info apprise maintenant, ou vide si rien"
+                  "reply": "réponse courte du PNJ, maximum 2 phrases",
+                  "playerMemory": {
+                    "shouldUpdate": false,
+                    "relationIntent": "same",
+                    "playerSummary": "",
+                    "knownFacts": [],
+                    "recurringTopics": [],
+                    "importantNotes": [],
+                    "lastLearnedInfo": ""
+                  },
+                  "generalMemory": {
+                    "shouldUpdate": false,
+                    "worldSummary": "",
+                    "knownFacts": [],
+                    "aliases": [],
+                    "recurringTopics": [],
+                    "importantNotes": [],
+                    "lastLearnedInfo": ""
+                  }
                 }
-                
-                Si aucune mise à jour mémoire n'est nécessaire :
-                - mets shouldUpdate à false
-                - conserve playerSummary, knownFacts, recurringTopics et importantNotes depuis l'ancienne fiche
-                - mets lastLearnedInfo à ""
+
+                Contraintes :
+                - reply doit faire maximum 2 phrases.
+                - chaque liste doit contenir maximum 5 éléments.
+                - chaque élément de liste doit faire maximum 120 caractères.
+                - relationIntent vaut seulement "increase", "decrease" ou "same".
+                - ne crée pas de longues explications dans les champs mémoire.
+                - si playerMemory.shouldUpdate vaut false, laisse playerSummary, knownFacts, recurringTopics, importantNotes et lastLearnedInfo vides.
+                - si generalMemory.shouldUpdate vaut false, laisse worldSummary, knownFacts, aliases, recurringTopics, importantNotes et lastLearnedInfo vides.
+                - ne recopie pas l'ancienne mémoire si elle n'a pas changé.
                 """.formatted(
                 player.getName().getString(),
                 npcName,
@@ -323,7 +414,9 @@ public class AiNpcChatHandler {
                 (int) player.getX(),
                 (int) player.getY(),
                 (int) player.getZ(),
+                staticKnowledge,
                 profileBeforeMessage,
+                generalMemoryBeforeMessage,
                 recentBuilder.toString(),
                 playerMessage
         );
@@ -333,14 +426,26 @@ public class AiNpcChatHandler {
         String json = extractJsonObject(aiResponse);
 
         if (json == null || json.isBlank()) {
-            return new NpcTurnResult(aiResponse, "");
+            String fallbackReply = extractReplyFallback(aiResponse);
+
+            if (fallbackReply == null || fallbackReply.isBlank()) {
+                fallbackReply = "Je me suis emmêlé dans mes pensées. Répète-moi ça plus simplement.";
+            }
+
+            return new NpcTurnResult(fallbackReply, "");
         }
 
         try {
             JsonObject object = GSON.fromJson(json, JsonObject.class);
 
             if (object == null) {
-                return new NpcTurnResult(aiResponse, "");
+                String fallbackReply = extractReplyFallback(aiResponse);
+
+                if (fallbackReply == null || fallbackReply.isBlank()) {
+                    fallbackReply = "Je me suis emmêlé dans mes pensées. Répète-moi ça plus simplement.";
+                }
+
+                return new NpcTurnResult(fallbackReply, "");
             }
 
             String reply = readString(object, "reply", "");
@@ -349,7 +454,96 @@ public class AiNpcChatHandler {
 
         } catch (Exception e) {
             AsmpThingsMod.LOGGER.error("[AI NPC] Impossible de parser la réponse JSON du PNJ : {}", aiResponse, e);
-            return new NpcTurnResult(aiResponse, "");
+
+            String fallbackReply = extractReplyFallback(aiResponse);
+
+            if (fallbackReply == null || fallbackReply.isBlank()) {
+                fallbackReply = "Je me suis emmêlé dans mes pensées. Répète-moi ça plus simplement.";
+            }
+
+            return new NpcTurnResult(fallbackReply, "");
+        }
+    }
+
+    private String extractReplyFallback(String aiResponse) {
+        if (aiResponse == null || aiResponse.isBlank()) {
+            return "";
+        }
+
+        String marker = "\"reply\"";
+        int markerIndex = aiResponse.indexOf(marker);
+
+        if (markerIndex < 0) {
+            return "";
+        }
+
+        int colonIndex = aiResponse.indexOf(':', markerIndex);
+
+        if (colonIndex < 0) {
+            return "";
+        }
+
+        int firstQuoteIndex = aiResponse.indexOf('"', colonIndex + 1);
+
+        if (firstQuoteIndex < 0) {
+            return "";
+        }
+
+        StringBuilder result = new StringBuilder();
+        boolean escaping = false;
+
+        for (int i = firstQuoteIndex + 1; i < aiResponse.length(); i++) {
+            char c = aiResponse.charAt(i);
+
+            if (escaping) {
+                switch (c) {
+                    case 'n' -> result.append(' ');
+                    case 'r' -> result.append(' ');
+                    case 't' -> result.append(' ');
+                    case '"' -> result.append('"');
+                    case '\\' -> result.append('\\');
+                    default -> result.append(c);
+                }
+
+                escaping = false;
+                continue;
+            }
+
+            if (c == '\\') {
+                escaping = true;
+                continue;
+            }
+
+            if (c == '"') {
+                break;
+            }
+
+            result.append(c);
+        }
+
+        return result.toString().trim();
+    }
+
+    private String readNestedString(String rawJson, String objectKey, String stringKey, String fallback) {
+        String json = extractJsonObject(rawJson);
+
+        if (json == null || json.isBlank()) {
+            return fallback;
+        }
+
+        try {
+            JsonObject root = GSON.fromJson(json, JsonObject.class);
+
+            if (root == null || !root.has(objectKey) || !root.get(objectKey).isJsonObject()) {
+                return fallback;
+            }
+
+            JsonObject child = root.getAsJsonObject(objectKey);
+
+            return readString(child, stringKey, fallback);
+
+        } catch (Exception e) {
+            return fallback;
         }
     }
 
@@ -382,18 +576,6 @@ public class AiNpcChatHandler {
         } catch (Exception ignored) {
             return fallback;
         }
-    }
-
-    private String formatRelationDelta(int delta) {
-        if (delta > 0) {
-            return "§a+" + delta;
-        }
-
-        if (delta < 0) {
-            return "§c" + delta;
-        }
-
-        return "§70";
     }
 
     private void showTextAboveNpc(MinecraftServer server, LivingEntity npc, String npcName, String response) {

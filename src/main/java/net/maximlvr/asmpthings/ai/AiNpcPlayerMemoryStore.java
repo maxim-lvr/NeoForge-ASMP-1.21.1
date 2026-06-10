@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 public class AiNpcPlayerMemoryStore {
@@ -31,6 +32,8 @@ public class AiNpcPlayerMemoryStore {
 
     private static final Type SAVE_TYPE = new TypeToken<Map<String, Map<String, PlayerMemory>>>() {
     }.getType();
+
+    private static final Random RANDOM = new Random();
 
     private static final int MAX_KNOWN_FACTS = 80;
     private static final int MAX_RECURRING_TOPICS = 30;
@@ -57,12 +60,13 @@ public class AiNpcPlayerMemoryStore {
             PlayerMemory created = new PlayerMemory();
             created.playerUuid = playerKey;
             created.playerName = playerName;
-            created.relationshipScore = 0;
+            created.relationState = AiNpcRelationState.NEUTRE.label();
             created.interactions = 0;
             created.firstSeen = Instant.now().toString();
             created.lastSeen = Instant.now().toString();
             created.lastMessage = "";
-            created.lastMoodChange = 0;
+            created.lastRelationIntent = "same";
+            created.lastRelationChanged = false;
             created.playerSummary = "";
             created.knownFacts = new ArrayList<>();
             created.recurringTopics = new ArrayList<>();
@@ -76,25 +80,65 @@ public class AiNpcPlayerMemoryStore {
         memory.playerName = playerName;
         memory.lastSeen = Instant.now().toString();
 
+        if (memory.relationState == null || memory.relationState.isBlank()) {
+            memory.relationState = AiNpcRelationState.NEUTRE.label();
+        }
+
         ensureLists(memory);
 
         return memory;
     }
 
-    public int updateRelationFromPlayerMessage(String npcName, UUID playerUuid, String playerName, String message) {
+    public void recordPlayerMessage(String npcName, UUID playerUuid, String playerName, String message) {
         PlayerMemory memory = getOrCreate(npcName, playerUuid, playerName);
 
-        int delta = calculateMoodDelta(message);
-
-        memory.relationshipScore = clamp(memory.relationshipScore + delta, -100, 100);
         memory.interactions++;
         memory.lastMessage = message;
-        memory.lastMoodChange = delta;
+        memory.lastSeen = Instant.now().toString();
+
+        save();
+    }
+
+    public RelationUpdateResult applyRelationIntent(
+            String npcName,
+            UUID playerUuid,
+            String playerName,
+            String relationIntent
+    ) {
+        PlayerMemory memory = getOrCreate(npcName, playerUuid, playerName);
+
+        AiNpcRelationState before = AiNpcRelationState.fromName(memory.relationState);
+        AiNpcRelationState after = before;
+
+        String normalizedIntent = normalizeIntent(relationIntent);
+
+        boolean changed = false;
+        boolean rollSuccess = false;
+
+        if ("increase".equals(normalizedIntent)) {
+            rollSuccess = RANDOM.nextInt(10) == 0; // 1 chance sur 10
+
+            if (rollSuccess) {
+                after = before.up();
+                changed = after != before;
+            }
+        } else if ("decrease".equals(normalizedIntent)) {
+            rollSuccess = RANDOM.nextInt(3) < 2; // 2 chances sur 3
+
+            if (rollSuccess) {
+                after = before.down();
+                changed = after != before;
+            }
+        }
+
+        memory.relationState = after.label();
+        memory.lastRelationIntent = normalizedIntent;
+        memory.lastRelationChanged = changed;
         memory.lastSeen = Instant.now().toString();
 
         save();
 
-        return delta;
+        return new RelationUpdateResult(before.label(), after.label(), normalizedIntent, changed, rollSuccess);
     }
 
     public String exportCompactProfileJsonForAi(String npcName, UUID playerUuid, String playerName) {
@@ -103,8 +147,7 @@ public class AiNpcPlayerMemoryStore {
         JsonObject object = new JsonObject();
 
         object.addProperty("playerName", memory.playerName);
-        object.addProperty("relationshipScore", memory.relationshipScore);
-        object.addProperty("relationLabel", getRelationLabel(memory.relationshipScore));
+        object.addProperty("relationState", memory.relationState);
         object.addProperty("interactions", memory.interactions);
         object.addProperty("playerSummary", safe(memory.playerSummary));
         object.add("knownFacts", toJsonArray(limitList(memory.knownFacts, PROMPT_MAX_KNOWN_FACTS)));
@@ -130,11 +173,15 @@ public class AiNpcPlayerMemoryStore {
         }
 
         try {
-            JsonObject object = GSON.fromJson(json, JsonObject.class);
+            JsonObject root = GSON.fromJson(json, JsonObject.class);
 
-            if (object == null) {
+            if (root == null) {
                 return new ProfileUpdateResult(false, "");
             }
+
+            JsonObject object = root.has("playerMemory") && root.get("playerMemory").isJsonObject()
+                    ? root.getAsJsonObject("playerMemory")
+                    : root;
 
             boolean shouldUpdate = readBoolean(object, "shouldUpdate", false);
 
@@ -166,6 +213,20 @@ public class AiNpcPlayerMemoryStore {
             AsmpThingsMod.LOGGER.error("[AI NPC] Erreur parsing fiche joueur IA : {}", aiJsonResponse, e);
             return new ProfileUpdateResult(false, "");
         }
+    }
+
+    private String normalizeIntent(String relationIntent) {
+        if (relationIntent == null) {
+            return "same";
+        }
+
+        String normalized = relationIntent.trim().toLowerCase(Locale.ROOT);
+
+        return switch (normalized) {
+            case "increase", "up", "positive", "good", "like_more" -> "increase";
+            case "decrease", "down", "negative", "bad", "like_less" -> "decrease";
+            default -> "same";
+        };
     }
 
     private List<String> limitList(List<String> source, int limit) {
@@ -211,6 +272,10 @@ public class AiNpcPlayerMemoryStore {
 
         if (memory.lastProfileUpdate == null) {
             memory.lastProfileUpdate = "";
+        }
+
+        if (memory.lastRelationIntent == null) {
+            memory.lastRelationIntent = "same";
         }
     }
 
@@ -372,110 +437,6 @@ public class AiNpcPlayerMemoryStore {
         return cleaned.substring(0, maxLength);
     }
 
-    private String getRelationLabel(int score) {
-        if (score >= 60) {
-            return "très amicale";
-        }
-
-        if (score >= 25) {
-            return "amicale";
-        }
-
-        if (score <= -60) {
-            return "hostile";
-        }
-
-        if (score <= -25) {
-            return "méfiante";
-        }
-
-        return "neutre";
-    }
-
-    private int calculateMoodDelta(String message) {
-        String lower = message.toLowerCase(Locale.ROOT);
-
-        int delta = 0;
-
-        if (containsAny(lower,
-                "merci",
-                "stp",
-                "s'il te plait",
-                "s'il te plaît",
-                "bravo",
-                "bien joué",
-                "t'es fort",
-                "tu es fort",
-                "j'aime bien",
-                "ami",
-                "pote",
-                "je t'aide",
-                "je vais t'aider",
-                "gentil",
-                "sympa",
-                "super",
-                "cool"
-        )) {
-            delta += 5;
-        }
-
-        if (containsAny(lower,
-                "idiot",
-                "nul",
-                "tais-toi",
-                "ta gueule",
-                "débile",
-                "debile",
-                "je te tue",
-                "je vais te tuer",
-                "meurs",
-                "dégage",
-                "degage",
-                "je te déteste",
-                "je te deteste",
-                "sale",
-                "menace"
-        )) {
-            delta -= 8;
-        }
-
-        if (containsAny(lower,
-                "désolé",
-                "desole",
-                "pardon",
-                "excuse"
-        )) {
-            delta += 3;
-        }
-
-        if (containsAny(lower,
-                "attaque",
-                "combat",
-                "tuer",
-                "voler",
-                "piège",
-                "piege"
-        )) {
-            delta -= 3;
-        }
-
-        return clamp(delta, -10, 10);
-    }
-
-    private boolean containsAny(String text, String... words) {
-        for (String word : words) {
-            if (text.contains(word)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
     private void load() {
         if (!Files.exists(savePath)) {
             save();
@@ -522,15 +483,27 @@ public class AiNpcPlayerMemoryStore {
     ) {
     }
 
+    public record RelationUpdateResult(
+            String beforeState,
+            String afterState,
+            String intent,
+            boolean changed,
+            boolean rollSuccess
+    ) {
+    }
+
     public static class PlayerMemory {
         public String playerUuid;
         public String playerName;
-        public int relationshipScore;
+
+        public String relationState;
+        public String lastRelationIntent;
+        public boolean lastRelationChanged;
+
         public int interactions;
         public String firstSeen;
         public String lastSeen;
         public String lastMessage;
-        public int lastMoodChange;
 
         public String playerSummary;
         public List<String> knownFacts;
