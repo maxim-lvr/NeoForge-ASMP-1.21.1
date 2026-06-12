@@ -198,9 +198,9 @@ public class AiNpcPlayerMemoryStore {
             String lastLearnedInfo = readString(object, "lastLearnedInfo", "");
 
             memory.playerSummary = clip(newSummary, 1200);
-            memory.knownFacts = newKnownFacts;
-            memory.recurringTopics = newRecurringTopics;
-            memory.importantNotes = newImportantNotes;
+            memory.knownFacts = mergeStringList(memory.knownFacts, newKnownFacts, MAX_KNOWN_FACTS);
+            memory.recurringTopics = mergeStringList(memory.recurringTopics, newRecurringTopics, MAX_RECURRING_TOPICS);
+            memory.importantNotes = mergeStringList(memory.importantNotes, newImportantNotes, MAX_IMPORTANT_NOTES);
             memory.lastLearnedInfo = clip(lastLearnedInfo, 300);
             memory.profileUpdateCount++;
             memory.lastProfileUpdate = Instant.now().toString();
@@ -243,6 +243,40 @@ public class AiNpcPlayerMemoryStore {
 
             if (value != null && !value.isBlank()) {
                 result.add(value);
+            }
+        }
+
+        return result;
+    }
+
+    private List<String> mergeStringList(List<String> oldValues, List<String> newValues, int maxSize) {
+        List<String> result = new ArrayList<>();
+
+        if (oldValues != null) {
+            for (String value : oldValues) {
+                String cleaned = sanitize(value);
+
+                if (!cleaned.isBlank() && !containsNormalized(result, cleaned)) {
+                    result.add(clip(cleaned, 250));
+                }
+
+                if (result.size() >= maxSize) {
+                    return result;
+                }
+            }
+        }
+
+        if (newValues != null) {
+            for (String value : newValues) {
+                String cleaned = sanitize(value);
+
+                if (!cleaned.isBlank() && !containsNormalized(result, cleaned)) {
+                    result.add(clip(cleaned, 250));
+                }
+
+                if (result.size() >= maxSize) {
+                    return result;
+                }
             }
         }
 
