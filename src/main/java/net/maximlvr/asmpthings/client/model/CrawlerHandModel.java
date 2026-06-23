@@ -35,8 +35,8 @@ public class CrawlerHandModel<T extends CrawlerHandEntity> extends EntityModel<T
                 "root",
                 CubeListBuilder.create()
                         .texOffs(0, 0)
-                        .addBox(-4.0F, -2.0F, -4.0F, 8.0F, 4.0F, 8.0F),
-                PartPose.offset(0.0F, 2.0F, 0.0F)
+                        .addBox(-4.0F, -1.0F, -4.0F, 8.0F, 2.0F, 8.0F),
+                PartPose.offset(0.0F, 0.0F, 0.0F)
         );
 
         return LayerDefinition.create(meshDefinition, 32, 32);

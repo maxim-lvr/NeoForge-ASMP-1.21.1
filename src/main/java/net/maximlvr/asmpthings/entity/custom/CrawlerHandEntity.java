@@ -8,17 +8,23 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
 import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
 import java.util.Optional;
+import net.minecraft.core.Direction;
 
 import java.util.UUID;
 
 public class CrawlerHandEntity extends Entity {
 
+    private record SurfaceTarget(BlockPos airPos, Direction normal) {
+    }
+
     private static final EntityDataAccessor<Optional<UUID>> DATA_OWNER_ID =
             SynchedEntityData.defineId(CrawlerHandEntity.class, EntityDataSerializers.OPTIONAL_UUID);
 
     private static final EntityDataAccessor<Integer> DATA_HAND_INDEX =
+            SynchedEntityData.defineId(CrawlerHandEntity.class, EntityDataSerializers.INT);
+
+    private static final EntityDataAccessor<Integer> DATA_ATTACHED_NORMAL =
             SynchedEntityData.defineId(CrawlerHandEntity.class, EntityDataSerializers.INT);
 
     private boolean anchored = false;
@@ -66,6 +72,10 @@ public class CrawlerHandEntity extends Entity {
         }
     }
 
+    private void setAttachedNormal(Direction normal) {
+        this.entityData.set(DATA_ATTACHED_NORMAL, normal.ordinal());
+    }
+
     public boolean canStartStep() {
         return !this.moving && this.stepCooldownTicks <= 0;
     }
@@ -98,11 +108,9 @@ public class CrawlerHandEntity extends Entity {
         this.setPos(x, y, z);
 
         if (progress >= 1.0D) {
-            BlockPos finalGround = findGroundNear(this.targetX, this.targetY, this.targetZ);
-
-            this.anchorX = finalGround.getX() + 0.5D;
-            this.anchorY = finalGround.getY();
-            this.anchorZ = finalGround.getZ() + 0.5D;
+            this.anchorX = this.targetX;
+            this.anchorY = this.targetY;
+            this.anchorZ = this.targetZ;
 
             this.anchored = true;
             this.moving = false;
@@ -113,6 +121,22 @@ public class CrawlerHandEntity extends Entity {
             this.setPos(this.anchorX, this.anchorY, this.anchorZ);
             this.setDeltaMovement(0.0D, 0.0D, 0.0D);
         }
+    }
+
+    public boolean isAttachedToSurface() {
+        return this.anchored && !this.moving;
+    }
+
+    public Direction getAttachedNormal() {
+        int id = this.entityData.get(DATA_ATTACHED_NORMAL);
+
+        Direction[] values = Direction.values();
+
+        if (id < 0 || id >= values.length) {
+            return Direction.UP;
+        }
+
+        return values[id];
     }
 
     public void moveToGroundNear(double wantedX, double wantedZ, boolean urgent) {
@@ -286,6 +310,7 @@ public class CrawlerHandEntity extends Entity {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(DATA_OWNER_ID, Optional.empty());
         builder.define(DATA_HAND_INDEX, 0);
+        builder.define(DATA_ATTACHED_NORMAL, Direction.UP.ordinal());
     }
 
     @Override
@@ -296,6 +321,10 @@ public class CrawlerHandEntity extends Entity {
 
         if (tag.contains("HandIndex")) {
             this.entityData.set(DATA_HAND_INDEX, tag.getInt("HandIndex"));
+        }
+
+        if (tag.contains("AttachedNormal")) {
+            this.entityData.set(DATA_ATTACHED_NORMAL, tag.getInt("AttachedNormal"));
         }
     }
 
@@ -308,6 +337,7 @@ public class CrawlerHandEntity extends Entity {
         }
 
         tag.putInt("HandIndex", getHandIndex());
+        tag.putInt("AttachedNormal", this.entityData.get(DATA_ATTACHED_NORMAL));
     }
 
     public boolean canSupportBody() {
@@ -318,34 +348,76 @@ public class CrawlerHandEntity extends Entity {
         return this.anchorY;
     }
 
-    public void moveToGroundNearBody(
+
+    private boolean isBlockedAt(double x, double y, double z) {
+        BlockPos pos = BlockPos.containing(x, y, z);
+
+        return !this.level()
+                .getBlockState(pos)
+                .getCollisionShape(this.level(), pos)
+                .isEmpty();
+    }
+
+    public void moveToSurfaceNearBody(
             double wantedX,
+            double wantedY,
             double wantedZ,
             double bodyX,
             double bodyY,
             double bodyZ,
             boolean urgent
     ) {
+        moveToSurfaceNearBody(
+                wantedX,
+                wantedY,
+                wantedZ,
+                bodyX,
+                bodyY,
+                bodyZ,
+                urgent,
+                null
+        );
+    }
+
+    public void moveToSurfaceNearBody(
+            double wantedX,
+            double wantedY,
+            double wantedZ,
+            double bodyX,
+            double bodyY,
+            double bodyZ,
+            boolean urgent,
+            Direction preferredNormal
+    ) {
         if (this.moving || this.stepCooldownTicks > 0) {
             return;
         }
 
-        BlockPos ground = findGroundNearBody(wantedX, wantedZ, bodyX, bodyY, bodyZ);
+        SurfaceTarget surface = findSurfaceNearBody(
+                wantedX,
+                wantedY,
+                wantedZ,
+                bodyX,
+                bodyY,
+                bodyZ,
+                preferredNormal
+        );
 
-        double nextTargetX = ground.getX() + 0.5D;
-        double nextTargetY = ground.getY();
-        double nextTargetZ = ground.getZ() + 0.5D;
+        double nextTargetX = surface.airPos().getX() + 0.5D;
+        double nextTargetY = getEntityYForSurface(surface.airPos(), surface.normal());
+        double nextTargetZ = surface.airPos().getZ() + 0.5D;
 
         double dx = nextTargetX - this.getX();
         double dy = nextTargetY - this.getY();
         double dz = nextTargetZ - this.getZ();
 
-        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
+        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        if (horizontalDistance < 0.35D && Math.abs(dy) < 0.35D) {
+        if (distance < 0.35D) {
             this.anchorX = nextTargetX;
             this.anchorY = nextTargetY;
             this.anchorZ = nextTargetZ;
+            setAttachedNormal(surface.normal());
 
             this.anchored = true;
             this.moving = false;
@@ -369,130 +441,144 @@ public class CrawlerHandEntity extends Entity {
         this.stepTicks = 0;
         this.maxStepTicks = urgent ? 4 : 12;
 
+        setAttachedNormal(surface.normal());
         this.anchored = false;
         this.moving = true;
     }
 
-    private BlockPos findGroundNearBody(
+    private SurfaceTarget findSurfaceNearBody(
             double wantedX,
+            double wantedY,
             double wantedZ,
             double bodyX,
             double bodyY,
-            double bodyZ
+            double bodyZ,
+            Direction preferredNormal
     ) {
-        double dirX = wantedX - bodyX;
-        double dirZ = wantedZ - bodyZ;
+        SurfaceTarget bestTarget = null;
+        double bestScore = Double.MAX_VALUE;
 
-        // On teste d'abord la position idéale, puis des positions plus proches du corps.
-        // Si le tunnel est étroit, les pattes se serrent naturellement.
-        double[] scales = {
-                1.0D,
-                0.9D,
-                0.8D,
-                0.7D,
-                0.6D,
-                0.5D,
-                0.4D
-        };
+        int baseX = (int) Math.floor(wantedX);
+        int baseY = (int) Math.floor(wantedY);
+        int baseZ = (int) Math.floor(wantedZ);
 
-        double[] sideOffsets = {
-                0.0D,
-                0.35D,
-                -0.35D,
-                0.7D,
-                -0.7D
-        };
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dy = -2; dy <= 2; dy++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    BlockPos airPos = new BlockPos(baseX + dx, baseY + dy, baseZ + dz);
 
-        double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+                    if (!isFreeForHand(airPos)) {
+                        continue;
+                    }
 
-        double sideX = 0.0D;
-        double sideZ = 0.0D;
+                    for (Direction normal : Direction.values()) {
+                        BlockPos solidPos = airPos.relative(normal.getOpposite());
 
-        if (length > 0.001D) {
-            sideX = -dirZ / length;
-            sideZ = dirX / length;
-        }
+                        if (!isSolidSurface(solidPos)) {
+                            continue;
+                        }
 
-        for (double scale : scales) {
-            double candidateCenterX = bodyX + dirX * scale;
-            double candidateCenterZ = bodyZ + dirZ * scale;
+                        if (!canReachFromBody(bodyX, bodyY, bodyZ, airPos)) {
+                            continue;
+                        }
 
-            for (double sideOffset : sideOffsets) {
-                double candidateX = candidateCenterX + sideX * sideOffset;
-                double candidateZ = candidateCenterZ + sideZ * sideOffset;
+                        double centerX = airPos.getX() + 0.5D;
+                        double centerY = getEntityYForSurface(airPos, normal);
+                        double centerZ = airPos.getZ() + 0.5D;
 
-                BlockPos ground = findGroundAtXZBelowBody(candidateX, candidateZ, bodyY);
+                        double distToWanted = distance(centerX, centerY, centerZ, wantedX, wantedY, wantedZ);
+                        double distToBody = distance(centerX, centerY, centerZ, bodyX, bodyY, bodyZ);
 
-                if (ground == null) {
-                    continue;
+                        if (distToBody > 4.4D) {
+                            continue;
+                        }
+
+                        double normalPenalty = getNormalPenalty(normal);
+
+                        if (preferredNormal != null && normal != preferredNormal) {
+                            normalPenalty += 4.0D;
+                        }
+
+                        double score = distToWanted + normalPenalty;
+
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestTarget = new SurfaceTarget(airPos, normal);
+                        }
+                    }
                 }
-
-                if (!canReachFromBody(bodyX, bodyY, bodyZ, ground)) {
-                    continue;
-                }
-
-                return ground;
             }
         }
 
-        // Fallback : si rien n'est trouvé, on cherche près du corps.
-        BlockPos fallback = findGroundAtXZBelowBody(bodyX, bodyZ, bodyY);
-
-        if (fallback != null) {
-            return fallback;
+        if (bestTarget != null) {
+            return bestTarget;
         }
 
-        return BlockPos.containing(this.getX(), this.getY(), this.getZ());
+        BlockPos fallback = BlockPos.containing(this.getX(), this.getY(), this.getZ());
+        return new SurfaceTarget(fallback, Direction.UP);
     }
 
-    private BlockPos findGroundAtXZBelowBody(double x, double z, double bodyY) {
-        int baseX = (int) Math.floor(x);
-        int baseZ = (int) Math.floor(z);
+    private boolean isFreeForHand(BlockPos pos) {
+        return this.level()
+                .getBlockState(pos)
+                .getCollisionShape(this.level(), pos)
+                .isEmpty();
+    }
 
-        // Très important : on ne cherche pas au-dessus du corps.
-        int startY = (int) Math.floor(bodyY + 0.25D);
+    private boolean isSolidSurface(BlockPos pos) {
+        return !this.level()
+                .getBlockState(pos)
+                .getCollisionShape(this.level(), pos)
+                .isEmpty();
+    }
 
-        // La main cherche sous le corps, pas à 30 blocs plus haut.
-        int minY = Math.max(this.level().getMinBuildHeight() + 1, startY - 8);
-
-        for (int y = startY; y >= minY; y--) {
-            BlockPos feetPos = new BlockPos(baseX, y, baseZ);
-            BlockPos groundPos = feetPos.below();
-
-            boolean groundSolid = !this.level()
-                    .getBlockState(groundPos)
-                    .getCollisionShape(this.level(), groundPos)
-                    .isEmpty();
-
-            boolean feetFree = this.level()
-                    .getBlockState(feetPos)
-                    .getCollisionShape(this.level(), feetPos)
-                    .isEmpty();
-
-            if (groundSolid && feetFree) {
-                return feetPos;
-            }
+    private double getEntityYForSurface(BlockPos airPos, Direction normal) {
+        if (normal == Direction.UP) {
+            // Main posée sur le sol.
+            return airPos.getY();
         }
 
-        return null;
+        if (normal == Direction.DOWN) {
+            // Main accrochée au plafond.
+            return airPos.getY() + 0.5D;
+        }
+
+        // Main contre un mur.
+        return airPos.getY() + 0.35D;
     }
 
-    private boolean canReachFromBody(double bodyX, double bodyY, double bodyZ, BlockPos targetFeetPos) {
-        double targetX = targetFeetPos.getX() + 0.5D;
-        double targetY = targetFeetPos.getY() + 0.4D;
-        double targetZ = targetFeetPos.getZ() + 0.5D;
+    private double getNormalPenalty(Direction normal) {
+        return switch (normal) {
+            case UP -> 0.0D;       // sol prioritaire
+            case NORTH, SOUTH, EAST, WEST -> 0.25D; // murs
+            case DOWN -> 0.45D;    // plafond
+        };
+    }
+
+    private double distance(double ax, double ay, double az, double bx, double by, double bz) {
+        double dx = ax - bx;
+        double dy = ay - by;
+        double dz = az - bz;
+
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private boolean canReachFromBody(double bodyX, double bodyY, double bodyZ, BlockPos targetAirPos) {
+        double targetX = targetAirPos.getX() + 0.5D;
+        double targetY = targetAirPos.getY() + 0.5D;
+        double targetZ = targetAirPos.getZ() + 0.5D;
 
         double startX = bodyX;
-        double startY = Math.min(bodyY - 0.4D, targetY + 1.0D);
+        double startY = bodyY + 0.45D;
         double startZ = bodyZ;
 
         double dx = targetX - startX;
         double dy = targetY - startY;
         double dz = targetZ - startZ;
 
-        int samples = 10;
+        int samples = 12;
 
-        for (int i = 1; i <= samples; i++) {
+        for (int i = 1; i < samples; i++) {
             double progress = i / (double) samples;
 
             double checkX = startX + dx * progress;
@@ -502,22 +588,9 @@ public class CrawlerHandEntity extends Entity {
             if (isBlockedAt(checkX, checkY, checkZ)) {
                 return false;
             }
-
-            // On teste aussi un peu au-dessus pour éviter que la patte traverse un mur bas.
-            if (isBlockedAt(checkX, checkY + 0.45D, checkZ)) {
-                return false;
-            }
         }
 
         return true;
     }
 
-    private boolean isBlockedAt(double x, double y, double z) {
-        BlockPos pos = BlockPos.containing(x, y, z);
-
-        return !this.level()
-                .getBlockState(pos)
-                .getCollisionShape(this.level(), pos)
-                .isEmpty();
-    }
 }

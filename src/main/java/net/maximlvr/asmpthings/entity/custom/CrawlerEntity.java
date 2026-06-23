@@ -17,6 +17,7 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
+import net.minecraft.core.Direction;
 
 public class CrawlerEntity extends Monster {
 
@@ -34,6 +35,21 @@ public class CrawlerEntity extends Monster {
     private boolean handsSpawned = false;
     private int attackCooldown = 0;
     private double compactAmount = 0.0D;
+
+    private boolean climbingWall = false;
+    private int climbTicks = 0;
+
+    private int spiderPathMode = 0;
+    // 0 = direct
+    // 1 = cherche un bord de plateforme
+    // 2 = grimpe
+
+    private int spiderPathCooldown = 0;
+    private Vec3 cachedSpiderDirection = new Vec3(0.0D, 0.0D, 0.0D);
+
+    private double climbDirX = 0.0D;
+    private double climbDirZ = 0.0D;
+    private Direction climbSurfaceNormal = Direction.UP;
 
     public CrawlerEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
@@ -115,20 +131,18 @@ public class CrawlerEntity extends Monster {
     }
 
     private void chasePlayer(Player player) {
-        double dx = player.getX() - this.getX();
-        double dz = player.getZ() - this.getZ();
+        Vec3 moveDirection = chooseSpiderMoveDirection(player);
 
-        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
+        double dirX = moveDirection.x;
+        double dirZ = moveDirection.z;
+
+        double horizontalDistance = horizontalDistanceTo(player.getX(), player.getZ());
 
         if (horizontalDistance < 0.001D) {
             return;
         }
 
-        double dirX = dx / horizontalDistance;
-        double dirZ = dz / horizontalDistance;
-
-        // Rotation du corps vers le joueur.
-        float targetYaw = (float) (Mth.atan2(dz, dx) * (180.0F / Math.PI)) - 90.0F;
+        float targetYaw = (float) (Mth.atan2(dirZ, dirX) * (180.0F / Math.PI)) - 90.0F;
 
         this.setYRot(targetYaw);
         this.yBodyRot = targetYaw;
@@ -158,17 +172,262 @@ public class CrawlerEntity extends Monster {
             }
         }
 
+        boolean wallInMoveDirection = hasWallInDirection(dirX, dirZ);
+        boolean shouldClimb = this.spiderPathMode == 2 || wallInMoveDirection;
+
+        if (shouldClimb) {
+            setClimbDirection(dirX, dirZ);
+
+            this.climbingWall = true;
+            this.climbTicks = 24;
+        }
+
+        if (this.climbTicks > 0) {
+            this.climbTicks--;
+        } else {
+            this.climbingWall = false;
+        }
+
+        double yMotion = motion.y;
+
+        if (this.climbingWall) {
+            yMotion = 0.20D;
+            speed *= 0.55D;
+        }
+
         this.setDeltaMovement(
                 dirX * speed,
-                motion.y,
+                yMotion,
                 dirZ * speed
         );
 
         this.hasImpulse = true;
 
-        if (horizontalDistance <= 2.4D) {
+        if (horizontalDistance <= 2.4D && Math.abs(player.getY() - this.getY()) < 2.2D) {
             tryAttack(player);
         }
+    }
+
+    private Vec3 chooseSpiderMoveDirection(Player player) {
+        if (this.spiderPathCooldown > 0) {
+            this.spiderPathCooldown--;
+
+            if (this.cachedSpiderDirection.lengthSqr() > 0.001D) {
+                return this.cachedSpiderDirection;
+            }
+        }
+
+        double dx = player.getX() - this.getX();
+        double dz = player.getZ() - this.getZ();
+
+        double length = Math.sqrt(dx * dx + dz * dz);
+
+        if (length < 0.001D) {
+            return new Vec3(0.0D, 0.0D, 0.0D);
+        }
+
+        Vec3 direct = new Vec3(dx / length, 0.0D, dz / length);
+
+        double yDifference = player.getY() - this.getY();
+
+        // Joueur plus haut : comportement araignée.
+        if (yDifference > 2.0D) {
+            // Si un mur est proche dans la direction du joueur, on va directement grimper.
+            if (hasWallInDirection(direct.x, direct.z) || hasClimbableWallNearDirection(direct)) {
+                this.spiderPathMode = 2;
+                this.cachedSpiderDirection = direct;
+                this.spiderPathCooldown = 8;
+                return direct;
+            }
+
+            // Si le mob est sous une plateforme, il cherche un bord.
+            if (isUnderPlatform()) {
+                Vec3 edgeDirection = findPlatformEdgeDirection(direct);
+
+                this.spiderPathMode = 1;
+                this.cachedSpiderDirection = edgeDirection;
+                this.spiderPathCooldown = 12;
+                return edgeDirection;
+            }
+        }
+
+        this.spiderPathMode = 0;
+        this.cachedSpiderDirection = direct;
+        this.spiderPathCooldown = 4;
+
+        return direct;
+    }
+
+    private double horizontalDistanceTo(double x, double z) {
+        double dx = x - this.getX();
+        double dz = z - this.getZ();
+
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
+    private boolean isUnderPlatform() {
+        BlockPos center = BlockPos.containing(this.getX(), this.getY(), this.getZ());
+
+        for (int y = 1; y <= 5; y++) {
+            BlockPos check = center.above(y);
+
+            if (isSolidBlock(check)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean hasWallInDirection(double dirX, double dirZ) {
+        double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+        if (length < 0.001D) {
+            return false;
+        }
+
+        dirX /= length;
+        dirZ /= length;
+
+        double[] distances = {
+                0.75D,
+                1.1D,
+                1.45D
+        };
+
+        for (double distance : distances) {
+            double checkX = this.getX() + dirX * distance;
+            double checkZ = this.getZ() + dirZ * distance;
+
+            BlockPos low = BlockPos.containing(checkX, this.getY() + 0.15D, checkZ);
+            BlockPos mid = BlockPos.containing(checkX, this.getY() + 0.9D, checkZ);
+            BlockPos high = BlockPos.containing(checkX, this.getY() + 1.7D, checkZ);
+
+            if (isSolidBlock(low) || isSolidBlock(mid) || isSolidBlock(high)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean hasClimbableWallNearDirection(Vec3 direction) {
+        double dirX = direction.x;
+        double dirZ = direction.z;
+
+        double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+        if (length < 0.001D) {
+            return false;
+        }
+
+        dirX /= length;
+        dirZ /= length;
+
+        double[] forwardDistances = {
+                1.5D,
+                2.5D,
+                3.5D,
+                4.5D,
+                5.5D
+        };
+
+        double[] sideOffsets = {
+                0.0D,
+                0.8D,
+                -0.8D,
+                1.5D,
+                -1.5D
+        };
+
+        double sideX = -dirZ;
+        double sideZ = dirX;
+
+        for (double forward : forwardDistances) {
+            for (double side : sideOffsets) {
+                double checkX = this.getX() + dirX * forward + sideX * side;
+                double checkZ = this.getZ() + dirZ * forward + sideZ * side;
+
+                if (isClimbableWallColumn(checkX, checkZ)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isClimbableWallColumn(double x, double z) {
+        int solidCount = 0;
+
+        for (int y = 0; y <= 4; y++) {
+            BlockPos check = BlockPos.containing(x, this.getY() + y * 0.75D, z);
+
+            if (isSolidBlock(check)) {
+                solidCount++;
+            }
+        }
+
+        return solidCount >= 2;
+    }
+
+    private Vec3 findPlatformEdgeDirection(Vec3 direct) {
+        Vec3 left = new Vec3(-direct.z, 0.0D, direct.x);
+        Vec3 right = new Vec3(direct.z, 0.0D, -direct.x);
+
+        double leftScore = scoreEdgeDirection(left);
+        double rightScore = scoreEdgeDirection(right);
+
+        if (leftScore < rightScore) {
+            return left;
+        }
+
+        return right;
+    }
+
+    private double scoreEdgeDirection(Vec3 direction) {
+        double score = 0.0D;
+
+        double[] distances = {
+                1.0D,
+                2.0D,
+                3.0D,
+                4.0D,
+                5.0D,
+                6.0D
+        };
+
+        for (double distance : distances) {
+            double checkX = this.getX() + direction.x * distance;
+            double checkZ = this.getZ() + direction.z * distance;
+
+            BlockPos ground = findGroundBelowAt(checkX, checkZ, this.getY());
+
+            if (ground == null) {
+                score += 10.0D;
+                continue;
+            }
+
+            int freeHeight = countFreeBlocksAbove(ground, 6);
+
+            // Plus il y a de hauteur libre, plus c'est probablement un bord de plateforme.
+            if (freeHeight >= 5) {
+                score -= 12.0D;
+            } else if (freeHeight >= 4) {
+                score -= 6.0D;
+            } else if (freeHeight >= 3) {
+                score -= 2.0D;
+            } else {
+                score += 2.5D;
+            }
+
+            // Si une colonne grimpable est dans cette direction, c'est aussi intéressant.
+            if (isClimbableWallColumn(checkX, checkZ)) {
+                score -= 5.0D;
+            }
+        }
+
+        return score;
     }
 
     private void tryAttack(Player player) {
@@ -201,6 +460,10 @@ public class CrawlerEntity extends Monster {
     }
 
     private void applyBodyHeightControl() {
+        if (this.climbingWall) {
+            return;
+        }
+
         BlockPos groundFeetPos = findGroundBelowBody();
 
         if (groundFeetPos == null) {
@@ -272,6 +535,11 @@ public class CrawlerEntity extends Monster {
             return;
         }
 
+        if (this.climbingWall) {
+            updateClimbingHandComfort(serverLevel, hand, handIndex);
+            return;
+        }
+
         double yawRad = Math.toRadians(this.getYRot());
 
         double sin = Math.sin(yawRad);
@@ -308,10 +576,11 @@ public class CrawlerEntity extends Monster {
         }
 
         // Pas au sol : replacement rapide, sans délai.
-        if (!hand.hasGroundBelow() || !hand.isAnchored()) {
+        if (!hand.isAttachedToSurface()) {
             if (hand.canStartStep() && canHandStartAlternatedStep(serverLevel, handIndex, true)) {
-                hand.moveToGroundNearBody(
+                hand.moveToSurfaceNearBody(
                         comfortX,
+                        this.getY(),
                         comfortZ,
                         this.getX(),
                         this.getY(),
@@ -327,8 +596,9 @@ public class CrawlerEntity extends Monster {
             int ticks = hand.addDiscomfortTick();
 
             if (ticks >= 2 && hand.canStartStep() && canHandStartAlternatedStep(serverLevel, handIndex, true)) {
-                hand.moveToGroundNearBody(
+                hand.moveToSurfaceNearBody(
                         comfortX,
+                        this.getY(),
                         comfortZ,
                         this.getX(),
                         this.getY(),
@@ -347,8 +617,9 @@ public class CrawlerEntity extends Monster {
             int requiredTicks = 4 + getHandStepDelay(handIndex);
 
             if (ticks >= requiredTicks && hand.canStartStep() && canHandStartAlternatedStep(serverLevel, handIndex, false)) {
-                hand.moveToGroundNearBody(
+                hand.moveToSurfaceNearBody(
                         comfortX,
+                        this.getY(),
                         comfortZ,
                         this.getX(),
                         this.getY(),
@@ -367,8 +638,9 @@ public class CrawlerEntity extends Monster {
             int requiredTicks = 6 + getHandStepDelay(handIndex);
 
             if (ticks >= requiredTicks && hand.canStartStep() && canHandStartAlternatedStep(serverLevel, handIndex, false)) {
-                hand.moveToGroundNearBody(
+                hand.moveToSurfaceNearBody(
                         comfortX,
+                        this.getY(),
                         comfortZ,
                         this.getX(),
                         this.getY(),
@@ -381,6 +653,101 @@ public class CrawlerEntity extends Monster {
         }
 
         // Patte confortable : reset.
+        hand.resetDiscomfortTicks();
+    }
+
+    private void updateClimbingHandComfort(ServerLevel serverLevel, CrawlerHandEntity hand, int handIndex) {
+        double dirX = this.climbDirX;
+        double dirZ = this.climbDirZ;
+
+        double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+        if (length < 0.001D) {
+            Vec3 fallback = getHorizontalMoveDirection();
+            dirX = fallback.x;
+            dirZ = fallback.z;
+            length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+        }
+
+        if (length < 0.001D) {
+            return;
+        }
+
+        dirX /= length;
+        dirZ /= length;
+
+        double sideX = -dirZ;
+        double sideZ = dirX;
+
+        double sideSign = switch (handIndex) {
+            case 0, 2 -> -1.0D;
+            case 1, 3 -> 1.0D;
+            default -> 0.0D;
+        };
+
+        double verticalOffset = switch (handIndex) {
+            case 0, 1 -> 1.15D;   // mains avant : plus hautes sur le mur
+            case 2, 3 -> -0.35D;  // mains arrière : plus basses
+            default -> 0.0D;
+        };
+
+        double wallDistance = 1.05D;
+        double sideSpread = lerpDouble(0.95D, 0.45D, this.compactAmount);
+
+        double comfortX = this.getX() + dirX * wallDistance + sideX * sideSign * sideSpread;
+        double comfortY = this.getY() + verticalOffset;
+        double comfortZ = this.getZ() + dirZ * wallDistance + sideZ * sideSign * sideSpread;
+
+        double dx = comfortX - hand.getX();
+        double dy = comfortY - hand.getY();
+        double dz = comfortZ - hand.getZ();
+
+        double distanceToComfort = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        if (hand.isMoving()) {
+            hand.resetDiscomfortTicks();
+            return;
+        }
+
+        boolean wrongSurface = hand.getAttachedNormal() != this.climbSurfaceNormal;
+
+        if (!hand.isAttachedToSurface() || wrongSurface) {
+            if (hand.canStartStep() && canHandStartAlternatedStep(serverLevel, handIndex, true)) {
+                hand.moveToSurfaceNearBody(
+                        comfortX,
+                        comfortY,
+                        comfortZ,
+                        this.getX(),
+                        this.getY(),
+                        this.getZ(),
+                        true,
+                        this.climbSurfaceNormal
+                );
+            }
+            return;
+        }
+
+        if (distanceToComfort > 0.85D) {
+            int ticks = hand.addDiscomfortTick();
+
+            int requiredTicks = 3 + getHandStepDelay(handIndex);
+
+            if (ticks >= requiredTicks && hand.canStartStep() && canHandStartAlternatedStep(serverLevel, handIndex, false)) {
+                hand.moveToSurfaceNearBody(
+                        comfortX,
+                        comfortY,
+                        comfortZ,
+                        this.getX(),
+                        this.getY(),
+                        this.getZ(),
+                        false,
+                        this.climbSurfaceNormal
+                );
+            }
+
+            return;
+        }
+
         hand.resetDiscomfortTicks();
     }
 
@@ -726,4 +1093,50 @@ public class CrawlerEntity extends Monster {
 
         return null;
     }
+
+    private boolean hasWallInFront() {
+        Vec3 direction = getHorizontalMoveDirection();
+        return hasWallInDirection(direction.x, direction.z);
+    }
+
+    private boolean isSolidBlock(BlockPos pos) {
+        return !this.level()
+                .getBlockState(pos)
+                .getCollisionShape(this.level(), pos)
+                .isEmpty();
+    }
+
+    private void setClimbDirection(double dirX, double dirZ) {
+        double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+        if (length < 0.001D) {
+            Vec3 fallback = getHorizontalMoveDirection();
+            dirX = fallback.x;
+            dirZ = fallback.z;
+            length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+        }
+
+        if (length < 0.001D) {
+            return;
+        }
+
+        this.climbDirX = dirX / length;
+        this.climbDirZ = dirZ / length;
+
+        this.climbSurfaceNormal = getWallSurfaceNormalFromMoveDirection(
+                this.climbDirX,
+                this.climbDirZ
+        );
+    }
+
+    private Direction getWallSurfaceNormalFromMoveDirection(double dirX, double dirZ) {
+        // Si le crawler va vers +X, le mur lui présente sa face WEST.
+        if (Math.abs(dirX) > Math.abs(dirZ)) {
+            return dirX > 0.0D ? Direction.WEST : Direction.EAST;
+        }
+
+        // Si le crawler va vers +Z, le mur lui présente sa face NORTH.
+        return dirZ > 0.0D ? Direction.NORTH : Direction.SOUTH;
+    }
+
 }
