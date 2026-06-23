@@ -1,0 +1,26 @@
+{
+  "type": "asmpthingsmod:asmp_dimension_type",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:plains",
+      "features": false,
+      "lakes": false,
+      "layers": [
+        {
+          "height": 1,
+          "block": "minecraft:bedrock"
+        },
+        {
+          "height": 2,
+          "block": "minecraft:dirt"
+        },
+        {
+          "height": 1,
+          "block": "minecraft:grass_block"
+        }
+      ],
+      "structure_overrides": []
+    }
+  }
+}

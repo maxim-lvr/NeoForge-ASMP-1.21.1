@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.world.level.block.Blocks;
 
 import java.util.function.Supplier;
 
@@ -327,6 +328,15 @@ public class ModBlocks {
                     .emissiveRendering((bs, br, bp) -> true)
                     .isRedstoneConductor((bs, br, bp) -> false)
             ));
+
+    public static final DeferredBlock<Block> DEEPSLATE_PORTAL = registerBlock(
+            "deepslate_portal",
+            () -> new DeepslatePortalBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DEEPSLATE)
+                    .noCollission()
+                    .strength(-1.0F, 3600000.0F)
+                    .lightLevel(state -> 10)
+                    .sound(SoundType.DEEPSLATE))
+    );
 
 
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {

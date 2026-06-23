@@ -106,7 +106,7 @@ public class AiNpcChatHandler {
                 player.getName().getString()
         );
 
-        String generalMemoryBeforeMessage = generalMemoryStore.exportCompactGeneralMemoryJsonForAi();
+        String generalMemoryBeforeMessage = generalMemoryStore.exportCompactGeneralMemoryJsonForAi(targetName);
 
         String staticKnowledge = personalityStore.exportStaticKnowledgeJsonForAi(targetName);
 
@@ -248,7 +248,7 @@ public class AiNpcChatHandler {
         }
 
         AiNpcGeneralMemoryStore.GeneralUpdateResult generalUpdateResult =
-                generalMemoryStore.applyAiGeneralMemoryUpdate(rawJson);
+                generalMemoryStore.applyAiGeneralMemoryUpdate(targetName, rawJson);
 
         if (generalUpdateResult.updated()) {
             String learned = generalUpdateResult.learnedInfo();
