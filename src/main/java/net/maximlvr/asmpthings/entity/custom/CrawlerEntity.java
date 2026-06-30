@@ -1,6 +1,10 @@
 package net.maximlvr.asmpthings.entity.custom;
 
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -9,6 +13,7 @@ import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.maximlvr.asmpthings.entity.ModEntities;
@@ -19,7 +24,41 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.util.Mth;
 import net.minecraft.core.Direction;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Set;
+
 public class CrawlerEntity extends Monster {
+    private static final EntityDataAccessor<Boolean> DATA_DEBUG_PATH =
+            SynchedEntityData.defineId(CrawlerEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<String> DATA_DEBUG_PATH_POINTS =
+            SynchedEntityData.defineId(CrawlerEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Integer> DATA_SURFACE_NORMAL =
+            SynchedEntityData.defineId(CrawlerEntity.class, EntityDataSerializers.INT);
+
+    private static final int SURFACE_PATH_RECALCULATE_TICKS = 34;
+    private static final int SURFACE_PATH_MAX_NODES = 1200;
+    private static final int SURFACE_PATH_MAX_DISTANCE = 34;
+    private static final int SURFACE_PATH_DEBUG_POINTS = 16;
+    private static final double SURFACE_WAYPOINT_REACHED_DISTANCE = 0.85D;
+    private static final int SURFACE_TARGET_REPATH_DISTANCE = 4;
+    private static final int SURFACE_NORMAL_CONFIRM_TICKS = 6;
+    private static final double STANDING_BODY_HEIGHT = 2.85D;
+    private static final double THREE_BLOCK_BODY_HEIGHT = 1.35D;
+    private static final double TWO_BLOCK_BODY_HEIGHT = 0.18D;
+    private static final double COMPACT_BODY_HEIGHT = 0.95D;
+    private static final boolean USE_PROCEDURAL_HANDS = false;
+    private static final double SURFACE_PROJECTION_DISTANCE = 1.35D;
+    private static final int SURFACE_SWITCH_CONFIRM_TICKS = 8;
+    private static final int SURFACE_SWITCH_LOCK_TICKS = 14;
+
+    private static boolean debugCrawlerPaths = false;
 
     private UUID frontLeftHandId;
     private UUID frontRightHandId;
@@ -50,12 +89,60 @@ public class CrawlerEntity extends Monster {
     private double climbDirX = 0.0D;
     private double climbDirZ = 0.0D;
     private Direction climbSurfaceNormal = Direction.UP;
+    private int surfacePathCooldown = 0;
+    private List<SurfaceNode> currentSurfacePath = List.of();
+    private int surfacePathIndex = 1;
+    private BlockPos lastSurfacePathTargetPos = null;
+    private double surfacePathYMotion = 0.0D;
+    private Direction currentSurfaceNormal = Direction.UP;
+    private Direction pendingSurfaceNormal = Direction.UP;
+    private int pendingSurfaceNormalTicks = 0;
+    private Direction pendingMovementSurface = Direction.UP;
+    private int pendingMovementSurfaceTicks = 0;
+    private int surfaceSwitchLockTicks = 0;
 
     public CrawlerEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
     }
 
+    public static boolean isDebugCrawlerPaths() {
+        return debugCrawlerPaths;
+    }
+
+    public static void setDebugCrawlerPaths(boolean enabled) {
+        debugCrawlerPaths = enabled;
+    }
+
+    public boolean shouldRenderDebugPath() {
+        return this.entityData.get(DATA_DEBUG_PATH);
+    }
+
+    public String getDebugPathPoints() {
+        return this.entityData.get(DATA_DEBUG_PATH_POINTS);
+    }
+
+    public Direction getSurfaceNormal() {
+        return Direction.from3DDataValue(this.entityData.get(DATA_SURFACE_NORMAL));
+    }
+
+    public boolean shouldRenderProceduralHands() {
+        return USE_PROCEDURAL_HANDS;
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(DATA_DEBUG_PATH, false);
+        builder.define(DATA_DEBUG_PATH_POINTS, "");
+        builder.define(DATA_SURFACE_NORMAL, Direction.UP.get3DDataValue());
+    }
+
     private void ensureHandsSpawned() {
+        if (!USE_PROCEDURAL_HANDS) {
+            removeDisabledHands();
+            return;
+        }
+
         if (this.level().isClientSide()) {
             return;
         }
@@ -128,25 +215,37 @@ public class CrawlerEntity extends Monster {
                 Player.class,
                 true
         ));
+
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(
+                this,
+                Villager.class,
+                true
+        ));
     }
 
-    private void chasePlayer(Player player) {
-        Vec3 moveDirection = chooseSpiderMoveDirection(player);
+    private void chasePlayer(LivingEntity target) {
+        this.surfacePathYMotion = 0.0D;
+        Vec3 moveDirection = chooseSurfaceProjectionDirection(target);
 
         double dirX = moveDirection.x;
         double dirZ = moveDirection.z;
+        double directionLengthSqr = dirX * dirX + dirZ * dirZ;
 
-        double horizontalDistance = horizontalDistanceTo(player.getX(), player.getZ());
+        double horizontalDistance = horizontalDistanceTo(target.getX(), target.getZ());
 
-        if (horizontalDistance < 0.001D) {
+        if (horizontalDistance < 0.001D && Math.abs(this.surfacePathYMotion) < 0.001D) {
             return;
         }
 
-        float targetYaw = (float) (Mth.atan2(dirZ, dirX) * (180.0F / Math.PI)) - 90.0F;
+        if (directionLengthSqr > 0.001D) {
+            float targetYaw = (float) (Mth.atan2(dirZ, dirX) * (180.0F / Math.PI)) - 90.0F;
 
-        this.setYRot(targetYaw);
-        this.yBodyRot = targetYaw;
-        this.yHeadRot = targetYaw;
+            float smoothedYaw = Mth.approachDegrees(this.getYRot(), targetYaw, 10.0F);
+
+            this.setYRot(smoothedYaw);
+            this.yBodyRot = smoothedYaw;
+            this.yHeadRot = smoothedYaw;
+        }
 
         double speed;
 
@@ -172,8 +271,8 @@ public class CrawlerEntity extends Monster {
             }
         }
 
-        boolean wallInMoveDirection = hasWallInDirection(dirX, dirZ);
-        boolean shouldClimb = this.spiderPathMode == 2 || wallInMoveDirection;
+        boolean wallInMoveDirection = hasLowBlockingWallInDirection(dirX, dirZ);
+        boolean shouldClimb = this.spiderPathMode == 2 || wallInMoveDirection || Math.abs(this.surfacePathYMotion) > 0.001D;
 
         if (shouldClimb) {
             setClimbDirection(dirX, dirZ);
@@ -190,7 +289,10 @@ public class CrawlerEntity extends Monster {
 
         double yMotion = motion.y;
 
-        if (this.climbingWall) {
+        if (Math.abs(this.surfacePathYMotion) > 0.001D) {
+            yMotion = this.surfacePathYMotion;
+            speed *= 0.62D;
+        } else if (this.climbingWall) {
             yMotion = 0.20D;
             speed *= 0.55D;
         }
@@ -203,12 +305,270 @@ public class CrawlerEntity extends Monster {
 
         this.hasImpulse = true;
 
-        if (horizontalDistance <= 2.4D && Math.abs(player.getY() - this.getY()) < 2.2D) {
-            tryAttack(player);
+        if (horizontalDistance <= 2.4D && Math.abs(target.getY() - this.getY()) < 2.2D) {
+            tryAttack(target);
         }
     }
 
-    private Vec3 chooseSpiderMoveDirection(Player player) {
+    private Vec3 chooseSurfaceProjectionDirection(LivingEntity target) {
+        Direction surface = this.currentSurfaceNormal;
+
+        if (this.surfaceSwitchLockTicks > 0) {
+            this.surfaceSwitchLockTicks--;
+        }
+
+        if (!isSurfaceStillSupported(surface)) {
+            surface = Direction.UP;
+            this.currentSurfaceNormal = Direction.UP;
+            this.pendingMovementSurface = Direction.UP;
+            this.pendingMovementSurfaceTicks = 0;
+        }
+
+        Vec3 projectedDirection = projectTargetDirectionOnSurface(target, surface);
+
+        if (projectedDirection.lengthSqr() < 0.001D) {
+            if (surface.getAxis().isHorizontal() && Math.abs(target.getY() - this.getY()) > 0.35D) {
+                this.surfacePathYMotion = Mth.clamp((target.getY() - this.getY()) * 0.12D, -0.18D, 0.22D);
+                updateSurfaceNormal(surface);
+                updateProjectionDebugPath(target, surface, Vec3.ZERO);
+                return Vec3.ZERO;
+            }
+
+            updateSurfaceNormal(surface);
+            return Vec3.ZERO;
+        }
+
+        Direction forcedSurface = stabilizeSurfaceChoice(surface, findForcedSurfaceChange(surface, projectedDirection));
+
+        if (forcedSurface != surface) {
+            surface = forcedSurface;
+            projectedDirection = projectTargetDirectionOnSurface(target, surface);
+        }
+
+        updateSurfaceNormal(surface);
+        this.spiderPathMode = surface == Direction.UP ? 0 : 2;
+
+        if (surface == Direction.UP) {
+            this.surfacePathYMotion = 0.0D;
+        } else if (surface == Direction.DOWN) {
+            this.surfacePathYMotion = 0.0D;
+        } else {
+            double dy = target.getY() - this.getY();
+            this.surfacePathYMotion = Mth.clamp(dy * 0.12D, -0.18D, 0.22D);
+        }
+
+        this.cachedSpiderDirection = projectedDirection;
+        updateProjectionDebugPath(target, surface, projectedDirection);
+        return projectedDirection;
+    }
+
+    private Direction stabilizeSurfaceChoice(Direction currentSurface, Direction wantedSurface) {
+        if (wantedSurface == currentSurface) {
+            this.pendingMovementSurface = wantedSurface;
+            this.pendingMovementSurfaceTicks = 0;
+            return currentSurface;
+        }
+
+        if (this.surfaceSwitchLockTicks > 0 && isSurfaceStillSupported(currentSurface)) {
+            return currentSurface;
+        }
+
+        if (wantedSurface != this.pendingMovementSurface) {
+            this.pendingMovementSurface = wantedSurface;
+            this.pendingMovementSurfaceTicks = 1;
+            return currentSurface;
+        }
+
+        this.pendingMovementSurfaceTicks++;
+
+        if (this.pendingMovementSurfaceTicks < SURFACE_SWITCH_CONFIRM_TICKS) {
+            return currentSurface;
+        }
+
+        this.surfaceSwitchLockTicks = SURFACE_SWITCH_LOCK_TICKS;
+        this.pendingMovementSurfaceTicks = 0;
+        return wantedSurface;
+    }
+
+    private Vec3 projectTargetDirectionOnSurface(LivingEntity target, Direction surface) {
+        double dx = target.getX() - this.getX();
+        double dy = target.getY() - this.getY();
+        double dz = target.getZ() - this.getZ();
+
+        if (surface == Direction.UP || surface == Direction.DOWN) {
+            return normalizeHorizontal(dx, dz);
+        }
+
+        if (surface.getAxis() == Direction.Axis.X) {
+            return normalizeHorizontal(0.0D, dz);
+        }
+
+        return normalizeHorizontal(dx, 0.0D);
+    }
+
+    private Vec3 normalizeHorizontal(double dx, double dz) {
+        double length = Math.sqrt(dx * dx + dz * dz);
+
+        if (length < 0.001D) {
+            return Vec3.ZERO;
+        }
+
+        return new Vec3(dx / length, 0.0D, dz / length);
+    }
+
+    private Direction findForcedSurfaceChange(Direction surface, Vec3 projectedDirection) {
+        if (surface == Direction.UP) {
+            if (canStayOnFloor(projectedDirection)) {
+                return Direction.UP;
+            }
+
+            if (hasWallInDirection(projectedDirection.x, projectedDirection.z)) {
+                return getWallSurfaceNormalFromMoveDirection(projectedDirection.x, projectedDirection.z);
+            }
+
+            return Direction.UP;
+        }
+
+        if (surface == Direction.DOWN) {
+            return isCeilingSupportedAhead(projectedDirection) ? Direction.DOWN : Direction.UP;
+        }
+
+        if (isWallSupportedAhead(surface, projectedDirection)) {
+            return surface;
+        }
+
+        BlockPos ground = findGroundBelowBody();
+
+        if (ground != null && countFreeBlocksAbove(ground, 3) >= 2) {
+            return Direction.UP;
+        }
+
+        return surface;
+    }
+
+    private boolean canStayOnFloor(Vec3 direction) {
+        double checkX = this.getX() + direction.x * SURFACE_PROJECTION_DISTANCE;
+        double checkZ = this.getZ() + direction.z * SURFACE_PROJECTION_DISTANCE;
+        BlockPos groundFeetPos = findGroundBelowAt(checkX, checkZ, this.getY());
+
+        if (groundFeetPos == null) {
+            return false;
+        }
+
+        return countFreeBlocksAbove(groundFeetPos, 3) >= 2
+                && !hasLowBlockingWallInDirection(direction.x, direction.z);
+    }
+
+    private boolean hasLowBlockingWallInDirection(double dirX, double dirZ) {
+        double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+        if (length < 0.001D) {
+            return false;
+        }
+
+        dirX /= length;
+        dirZ /= length;
+
+        double[] distances = {
+                0.75D,
+                1.1D,
+                1.45D
+        };
+
+        for (double distance : distances) {
+            double checkX = this.getX() + dirX * distance;
+            double checkZ = this.getZ() + dirZ * distance;
+
+            BlockPos low = BlockPos.containing(checkX, this.getY() + 0.15D, checkZ);
+            BlockPos mid = BlockPos.containing(checkX, this.getY() + 0.85D, checkZ);
+
+            if (isSolidBlock(low) || isSolidBlock(mid)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isWallSupportedAhead(Direction surface, Vec3 direction) {
+        BlockPos current = BlockPos.containing(this.position());
+        BlockPos ahead = BlockPos.containing(
+                this.getX() + direction.x * SURFACE_PROJECTION_DISTANCE,
+                this.getY() + this.surfacePathYMotion * 3.0D,
+                this.getZ() + direction.z * SURFACE_PROJECTION_DISTANCE
+        );
+
+        return hasSurfaceSupport(current, surface) || hasSurfaceSupport(ahead, surface);
+    }
+
+    private boolean isCeilingSupportedAhead(Vec3 direction) {
+        BlockPos ahead = BlockPos.containing(
+                this.getX() + direction.x * SURFACE_PROJECTION_DISTANCE,
+                this.getY(),
+                this.getZ() + direction.z * SURFACE_PROJECTION_DISTANCE
+        );
+
+        return hasSurfaceSupport(ahead, Direction.DOWN);
+    }
+
+    private boolean isSurfaceStillSupported(Direction surface) {
+        if (surface == Direction.UP) {
+            return findGroundBelowBody() != null;
+        }
+
+        return hasSurfaceSupport(BlockPos.containing(this.position()), surface);
+    }
+
+    private boolean hasSurfaceSupport(BlockPos airPos, Direction surface) {
+        Direction supportDirection = surface.getOpposite();
+
+        return isSolidBlock(airPos.relative(supportDirection))
+                || isSolidBlock(airPos.above().relative(supportDirection))
+                || isSolidBlock(airPos.below().relative(supportDirection));
+    }
+
+    private void updateProjectionDebugPath(LivingEntity target, Direction surface, Vec3 direction) {
+        this.entityData.set(DATA_DEBUG_PATH, debugCrawlerPaths);
+
+        if (!debugCrawlerPaths) {
+            this.entityData.set(DATA_DEBUG_PATH_POINTS, "");
+            return;
+        }
+
+        Vec3 start = this.position();
+        Vec3 projection = start.add(
+                direction.x * SURFACE_PROJECTION_DISTANCE * 4.0D,
+                this.surfacePathYMotion * 8.0D,
+                direction.z * SURFACE_PROJECTION_DISTANCE * 4.0D
+        );
+
+        this.entityData.set(
+                DATA_DEBUG_PATH_POINTS,
+                encodeDebugPoint(start, surface)
+                        + ";"
+                        + encodeDebugPoint(projection, surface)
+                        + ";"
+                        + encodeDebugPoint(target.position(), Direction.UP)
+        );
+    }
+
+    private String encodeDebugPoint(Vec3 point, Direction surface) {
+        return (int) Math.floor(point.x)
+                + ","
+                + (int) Math.floor(point.y)
+                + ","
+                + (int) Math.floor(point.z)
+                + ","
+                + surface.get3DDataValue();
+    }
+
+    private Vec3 chooseSpiderMoveDirection(LivingEntity target) {
+        Vec3 pathDirection = chooseSurfacePathDirection(target);
+
+        if (pathDirection.lengthSqr() > 0.001D) {
+            return pathDirection;
+        }
+
         if (this.spiderPathCooldown > 0) {
             this.spiderPathCooldown--;
 
@@ -217,8 +577,8 @@ public class CrawlerEntity extends Monster {
             }
         }
 
-        double dx = player.getX() - this.getX();
-        double dz = player.getZ() - this.getZ();
+        double dx = target.getX() - this.getX();
+        double dz = target.getZ() - this.getZ();
 
         double length = Math.sqrt(dx * dx + dz * dz);
 
@@ -228,7 +588,7 @@ public class CrawlerEntity extends Monster {
 
         Vec3 direct = new Vec3(dx / length, 0.0D, dz / length);
 
-        double yDifference = player.getY() - this.getY();
+        double yDifference = target.getY() - this.getY();
 
         // Joueur plus haut : comportement araignée.
         if (yDifference > 2.0D) {
@@ -256,6 +616,138 @@ public class CrawlerEntity extends Monster {
         this.spiderPathCooldown = 4;
 
         return direct;
+    }
+
+    private Vec3 chooseSurfacePathDirection(LivingEntity target) {
+        if (shouldRecalculateSurfacePath(target)) {
+            this.currentSurfacePath = findSurfacePath(target);
+            this.surfacePathIndex = this.currentSurfacePath.size() > 1 ? 1 : 0;
+            this.lastSurfacePathTargetPos = BlockPos.containing(target.position());
+            this.surfacePathCooldown = SURFACE_PATH_RECALCULATE_TICKS + this.random.nextInt(8);
+            updateDebugPathData(target);
+        } else if (this.surfacePathCooldown > 0) {
+            this.surfacePathCooldown--;
+            syncDebugToggleWithoutRepath(target);
+        }
+
+        if (this.currentSurfacePath.size() < 2) {
+            updateSurfaceNormal(Direction.UP);
+            return Vec3.ZERO;
+        }
+
+        SurfaceNode next = selectNextSurfaceWaypoint();
+
+        if (next == null) {
+            updateSurfaceNormal(Direction.UP);
+            return Vec3.ZERO;
+        }
+
+        updateSurfaceNormal(next.normal());
+
+        Vec3 targetPoint = nodeCenter(next);
+        double dx = targetPoint.x - this.getX();
+        double dy = targetPoint.y - this.getY();
+        double dz = targetPoint.z - this.getZ();
+        double horizontalLength = Math.sqrt(dx * dx + dz * dz);
+        this.surfacePathYMotion = calculateSurfacePathYMotion(dy);
+
+        if (dy > 0.35D || next.normal() != Direction.UP) {
+            this.spiderPathMode = 2;
+        }
+
+        if (horizontalLength < 0.18D) {
+            if (Math.abs(dy) > 0.35D) {
+                Vec3 fallback = getHorizontalMoveDirection();
+                return fallback.lengthSqr() > 0.001D ? fallback : Vec3.ZERO;
+            }
+
+            return Vec3.ZERO;
+        }
+
+        this.cachedSpiderDirection = new Vec3(dx / horizontalLength, 0.0D, dz / horizontalLength);
+        return this.cachedSpiderDirection;
+    }
+
+    private double calculateSurfacePathYMotion(double dy) {
+        if (Math.abs(dy) < 0.18D) {
+            return 0.0D;
+        }
+
+        double wanted = dy * 0.18D;
+
+        return Mth.clamp(wanted, -0.22D, 0.24D);
+    }
+
+    private boolean shouldRecalculateSurfacePath(LivingEntity target) {
+        if (this.currentSurfacePath.size() < 2) {
+            return this.surfacePathCooldown <= 0;
+        }
+
+        if (this.surfacePathIndex >= this.currentSurfacePath.size()) {
+            return true;
+        }
+
+        SurfaceNode currentWaypoint = this.currentSurfacePath.get(this.surfacePathIndex);
+
+        if (createSurfaceNode(currentWaypoint.airPos()) == null) {
+            return true;
+        }
+
+        BlockPos targetPos = BlockPos.containing(target.position());
+
+        if (this.lastSurfacePathTargetPos == null) {
+            return true;
+        }
+
+        boolean targetMovedFar = this.lastSurfacePathTargetPos.distManhattan(targetPos) >= SURFACE_TARGET_REPATH_DISTANCE;
+
+        return targetMovedFar && this.surfacePathCooldown <= 0;
+    }
+
+    private SurfaceNode selectNextSurfaceWaypoint() {
+        if (this.surfacePathIndex <= 0) {
+            this.surfacePathIndex = 1;
+        }
+
+        while (this.surfacePathIndex < this.currentSurfacePath.size() - 1) {
+            SurfaceNode node = this.currentSurfacePath.get(this.surfacePathIndex);
+            Vec3 center = nodeCenter(node);
+            double dx = center.x - this.getX();
+            double dy = center.y - this.getY();
+            double dz = center.z - this.getZ();
+            double distanceSqr = dx * dx + dy * dy + dz * dz;
+
+            if (distanceSqr > SURFACE_WAYPOINT_REACHED_DISTANCE * SURFACE_WAYPOINT_REACHED_DISTANCE) {
+                break;
+            }
+
+            this.surfacePathIndex++;
+        }
+
+        return this.currentSurfacePath.get(Math.min(this.surfacePathIndex, this.currentSurfacePath.size() - 1));
+    }
+
+    private void updateSurfaceNormal(Direction wantedNormal) {
+        if (wantedNormal == this.currentSurfaceNormal) {
+            this.pendingSurfaceNormal = wantedNormal;
+            this.pendingSurfaceNormalTicks = 0;
+            this.entityData.set(DATA_SURFACE_NORMAL, this.currentSurfaceNormal.get3DDataValue());
+            return;
+        }
+
+        if (wantedNormal != this.pendingSurfaceNormal) {
+            this.pendingSurfaceNormal = wantedNormal;
+            this.pendingSurfaceNormalTicks = 1;
+            return;
+        }
+
+        this.pendingSurfaceNormalTicks++;
+
+        if (this.pendingSurfaceNormalTicks >= SURFACE_NORMAL_CONFIRM_TICKS || wantedNormal == Direction.UP) {
+            this.currentSurfaceNormal = wantedNormal;
+            this.pendingSurfaceNormalTicks = 0;
+            this.entityData.set(DATA_SURFACE_NORMAL, this.currentSurfaceNormal.get3DDataValue());
+        }
     }
 
     private double horizontalDistanceTo(double x, double z) {
@@ -430,16 +922,16 @@ public class CrawlerEntity extends Monster {
         return score;
     }
 
-    private void tryAttack(Player player) {
+    private void tryAttack(LivingEntity target) {
         if (this.attackCooldown > 0) {
             return;
         }
 
-        if (player.isCreative() || player.isSpectator()) {
+        if (target instanceof Player player && (player.isCreative() || player.isSpectator())) {
             return;
         }
 
-        this.doHurtTarget(player);
+        this.doHurtTarget(target);
         this.attackCooldown = 20;
     }
 
@@ -456,7 +948,10 @@ public class CrawlerEntity extends Monster {
     private void updateBodyHeightAndHands(ServerLevel serverLevel) {
         applyBodyHeightControl();
         updateBodyMoveMemory();
-        updateHandsComfort(serverLevel);
+
+        if (USE_PROCEDURAL_HANDS) {
+            updateHandsComfort(serverLevel);
+        }
     }
 
     private void applyBodyHeightControl() {
@@ -472,20 +967,11 @@ public class CrawlerEntity extends Monster {
 
         updateCompactAmount(groundFeetPos);
 
-        int currentFreeHeight = countFreeBlocksAbove(groundFeetPos, 5);
+        int currentFreeHeight = countFreeBlocksAbove(groundFeetPos, 6);
         int aheadFreeHeight = getLowestFreeHeightAhead(groundFeetPos);
         int effectiveFreeHeight = Math.min(currentFreeHeight, aheadFreeHeight);
 
-        double targetHeight;
-
-        if (effectiveFreeHeight <= 2) {
-            // Tunnel 2 blocs détecté devant ou autour : on se baisse avant d'entrer.
-            targetHeight = 0.05D;
-        } else if (effectiveFreeHeight == 3) {
-            targetHeight = 0.65D;
-        } else {
-            targetHeight = lerpDouble(2.0D, 0.75D, this.compactAmount);
-        }
+        double targetHeight = getBodyHeightForFreeHeight(effectiveFreeHeight);
 
         double targetY = groundFeetPos.getY() + targetHeight;
         double currentY = this.getY();
@@ -777,6 +1263,23 @@ public class CrawlerEntity extends Monster {
         }
     }
 
+    private void removeDisabledHands() {
+        if (this.level().isClientSide()) {
+            return;
+        }
+
+        removeHand(this.frontLeftHandId);
+        removeHand(this.frontRightHandId);
+        removeHand(this.backLeftHandId);
+        removeHand(this.backRightHandId);
+
+        this.frontLeftHandId = null;
+        this.frontRightHandId = null;
+        this.backLeftHandId = null;
+        this.backRightHandId = null;
+        this.handsSpawned = false;
+    }
+
     @Override
     protected void customServerAiStep() {
         super.customServerAiStep();
@@ -788,21 +1291,43 @@ public class CrawlerEntity extends Monster {
 
         updateBodyHeightAndHands(serverLevel);
 
-        Player nearestPlayer = serverLevel.getNearestPlayer(
-                this,
-                32.0D
+        LivingEntity nearestTarget = findNearestCrawlerTarget(serverLevel);
+
+        if (nearestTarget == null) {
+            return;
+        }
+
+        this.setTarget(nearestTarget);
+        chasePlayer(nearestTarget);
+    }
+
+    private LivingEntity findNearestCrawlerTarget(ServerLevel serverLevel) {
+        LivingEntity nearest = null;
+        double nearestDistance = 32.0D * 32.0D;
+
+        Player player = serverLevel.getNearestPlayer(this, 32.0D);
+
+        if (player != null && !player.isCreative() && !player.isSpectator()) {
+            nearest = player;
+            nearestDistance = this.distanceToSqr(player);
+        }
+
+        List<Villager> villagers = serverLevel.getEntitiesOfClass(
+                Villager.class,
+                this.getBoundingBox().inflate(32.0D),
+                villager -> villager.isAlive() && !villager.isBaby()
         );
 
-        if (nearestPlayer == null) {
-            return;
+        for (Villager villager : villagers) {
+            double distance = this.distanceToSqr(villager);
+
+            if (distance < nearestDistance) {
+                nearest = villager;
+                nearestDistance = distance;
+            }
         }
 
-        if (nearestPlayer.isCreative() || nearestPlayer.isSpectator()) {
-            return;
-        }
-
-        this.setTarget(nearestPlayer);
-        chasePlayer(nearestPlayer);
+        return nearest;
     }
 
     private void slowDownHorizontalMovement() {
@@ -1036,7 +1561,7 @@ public class CrawlerEntity extends Monster {
     private int getLowestFreeHeightAhead(BlockPos currentGroundFeetPos) {
         Vec3 direction = getHorizontalMoveDirection();
 
-        int lowestFreeHeight = countFreeBlocksAbove(currentGroundFeetPos, 5);
+        int lowestFreeHeight = countFreeBlocksAbove(currentGroundFeetPos, 6);
 
         double[] distances = {
                 0.75D,
@@ -1057,7 +1582,7 @@ public class CrawlerEntity extends Monster {
                 continue;
             }
 
-            int freeHeight = countFreeBlocksAbove(aheadGroundFeetPos, 5);
+            int freeHeight = countFreeBlocksAbove(aheadGroundFeetPos, 6);
 
             lowestFreeHeight = Math.min(lowestFreeHeight, freeHeight);
         }
@@ -1106,6 +1631,235 @@ public class CrawlerEntity extends Monster {
                 .isEmpty();
     }
 
+    private List<SurfaceNode> findSurfacePath(LivingEntity target) {
+        SurfaceNode start = findNearestSurfaceNode(BlockPos.containing(this.position()), 3);
+        SurfaceNode goal = findNearestSurfaceNode(BlockPos.containing(target.position()), 5);
+
+        if (start == null || goal == null) {
+            return List.of();
+        }
+
+        PriorityQueue<PathRecord> open = new PriorityQueue<>(Comparator.comparingDouble(PathRecord::estimatedTotalCost));
+        Map<SurfaceNode, Double> costByNode = new HashMap<>();
+        Map<SurfaceNode, SurfaceNode> cameFrom = new HashMap<>();
+        Set<SurfaceNode> closed = new HashSet<>();
+
+        costByNode.put(start, 0.0D);
+        open.add(new PathRecord(start, 0.0D, surfaceHeuristic(start, goal)));
+
+        int visited = 0;
+
+        while (!open.isEmpty() && visited < SURFACE_PATH_MAX_NODES) {
+            PathRecord current = open.poll();
+
+            if (!closed.add(current.node())) {
+                continue;
+            }
+
+            visited++;
+
+            if (current.node().airPos().distManhattan(goal.airPos()) <= 1) {
+                return reconstructPath(cameFrom, current.node());
+            }
+
+            for (SurfaceNode neighbor : getSurfaceNeighbors(current.node(), start.airPos())) {
+                if (closed.contains(neighbor)) {
+                    continue;
+                }
+
+                double stepCost = current.node().normal() == neighbor.normal() ? 1.0D : 1.7D;
+                double newCost = costByNode.get(current.node()) + stepCost;
+
+                if (newCost >= costByNode.getOrDefault(neighbor, Double.MAX_VALUE)) {
+                    continue;
+                }
+
+                costByNode.put(neighbor, newCost);
+                cameFrom.put(neighbor, current.node());
+                open.add(new PathRecord(neighbor, newCost, newCost + surfaceHeuristic(neighbor, goal)));
+            }
+        }
+
+        return List.of();
+    }
+
+    private SurfaceNode findNearestSurfaceNode(BlockPos center, int radius) {
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        Set<BlockPos> visited = new HashSet<>();
+
+        queue.add(center);
+        visited.add(center);
+
+        while (!queue.isEmpty()) {
+            BlockPos pos = queue.removeFirst();
+            SurfaceNode node = createSurfaceNode(pos);
+
+            if (node != null) {
+                return node;
+            }
+
+            if (center.distManhattan(pos) >= radius) {
+                continue;
+            }
+
+            for (Direction direction : Direction.values()) {
+                BlockPos next = pos.relative(direction);
+
+                if (visited.add(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private List<SurfaceNode> getSurfaceNeighbors(SurfaceNode node, BlockPos startPos) {
+        List<SurfaceNode> neighbors = new ArrayList<>();
+
+        for (Direction direction : Direction.values()) {
+            BlockPos nextPos = node.airPos().relative(direction);
+
+            if (nextPos.distManhattan(startPos) > SURFACE_PATH_MAX_DISTANCE) {
+                continue;
+            }
+
+            SurfaceNode next = createSurfaceNode(nextPos);
+
+            if (next != null) {
+                neighbors.add(next);
+            }
+        }
+
+        return neighbors;
+    }
+
+    private SurfaceNode createSurfaceNode(BlockPos airPos) {
+        if (isSolidBlock(airPos)) {
+            return null;
+        }
+
+        Direction bestNormal = null;
+
+        for (Direction normal : Direction.values()) {
+            if (isSolidBlock(airPos.relative(normal.getOpposite()))) {
+                if (normal == Direction.UP && countFreeBlocksAbove(airPos, 3) < 2) {
+                    continue;
+                }
+
+                bestNormal = normal;
+
+                if (normal == Direction.UP) {
+                    break;
+                }
+            }
+        }
+
+        if (bestNormal == null) {
+            return null;
+        }
+
+        return new SurfaceNode(airPos.immutable(), bestNormal);
+    }
+
+    private double surfaceHeuristic(SurfaceNode from, SurfaceNode to) {
+        return Math.abs(from.airPos().getX() - to.airPos().getX())
+                + Math.abs(from.airPos().getY() - to.airPos().getY()) * 1.25D
+                + Math.abs(from.airPos().getZ() - to.airPos().getZ());
+    }
+
+    private List<SurfaceNode> reconstructPath(Map<SurfaceNode, SurfaceNode> cameFrom, SurfaceNode end) {
+        List<SurfaceNode> path = new ArrayList<>();
+        SurfaceNode current = end;
+
+        path.add(current);
+
+        while (cameFrom.containsKey(current)) {
+            current = cameFrom.get(current);
+            path.add(0, current);
+        }
+
+        return path;
+    }
+
+    private Vec3 nodeCenter(SurfaceNode node) {
+        if (node.normal() == Direction.UP) {
+            int freeHeight = countFreeBlocksAbove(node.airPos(), 6);
+            return new Vec3(
+                    node.airPos().getX() + 0.5D,
+                    node.airPos().getY() + getBodyHeightForFreeHeight(freeHeight),
+                    node.airPos().getZ() + 0.5D
+            );
+        }
+
+        return Vec3.atCenterOf(node.airPos());
+    }
+
+    private double getBodyHeightForFreeHeight(int freeHeight) {
+        if (freeHeight <= 2) {
+            return TWO_BLOCK_BODY_HEIGHT;
+        }
+
+        if (freeHeight == 3) {
+            return THREE_BLOCK_BODY_HEIGHT;
+        }
+
+        return lerpDouble(STANDING_BODY_HEIGHT, COMPACT_BODY_HEIGHT, this.compactAmount);
+    }
+
+    private void updateDebugPathData(LivingEntity target) {
+        this.entityData.set(DATA_DEBUG_PATH, debugCrawlerPaths);
+
+        if (!debugCrawlerPaths || this.currentSurfacePath.isEmpty()) {
+            if (debugCrawlerPaths && target != null) {
+                this.entityData.set(DATA_DEBUG_PATH_POINTS, encodeFallbackDebugPath(target));
+            } else {
+                this.entityData.set(DATA_DEBUG_PATH_POINTS, "");
+            }
+            return;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        int count = Math.min(SURFACE_PATH_DEBUG_POINTS, this.currentSurfacePath.size());
+
+        for (int i = 0; i < count; i++) {
+            SurfaceNode node = this.currentSurfacePath.get(i);
+
+            if (i > 0) {
+                builder.append(';');
+            }
+
+            Vec3 debugPoint = nodeCenter(node);
+
+            builder.append((int) Math.floor(debugPoint.x))
+                    .append(',')
+                    .append((int) Math.floor(debugPoint.y))
+                    .append(',')
+                    .append((int) Math.floor(debugPoint.z))
+                    .append(',')
+                    .append(node.normal().get3DDataValue());
+        }
+
+        this.entityData.set(DATA_DEBUG_PATH_POINTS, builder.toString());
+    }
+
+    private void syncDebugToggleWithoutRepath(LivingEntity target) {
+        if (this.entityData.get(DATA_DEBUG_PATH) == debugCrawlerPaths) {
+            return;
+        }
+
+        updateDebugPathData(target);
+    }
+
+    private String encodeFallbackDebugPath(LivingEntity target) {
+        BlockPos start = BlockPos.containing(this.position());
+        BlockPos end = BlockPos.containing(target.position());
+
+        return start.getX() + "," + start.getY() + "," + start.getZ() + "," + Direction.UP.get3DDataValue()
+                + ";"
+                + end.getX() + "," + end.getY() + "," + end.getZ() + "," + Direction.UP.get3DDataValue();
+    }
+
     private void setClimbDirection(double dirX, double dirZ) {
         double length = Math.sqrt(dirX * dirX + dirZ * dirZ);
 
@@ -1137,6 +1891,12 @@ public class CrawlerEntity extends Monster {
 
         // Si le crawler va vers +Z, le mur lui présente sa face NORTH.
         return dirZ > 0.0D ? Direction.NORTH : Direction.SOUTH;
+    }
+
+    private record SurfaceNode(BlockPos airPos, Direction normal) {
+    }
+
+    private record PathRecord(SurfaceNode node, double cost, double estimatedTotalCost) {
     }
 
 }

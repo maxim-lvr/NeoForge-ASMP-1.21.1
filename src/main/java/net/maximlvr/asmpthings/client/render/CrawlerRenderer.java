@@ -1,21 +1,27 @@
 package net.maximlvr.asmpthings.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.maximlvr.asmpthings.AsmpThingsMod;
 import net.maximlvr.asmpthings.client.model.CrawlerArmModel;
 import net.maximlvr.asmpthings.client.model.CrawlerModel;
 import net.maximlvr.asmpthings.entity.custom.CrawlerEntity;
 import net.maximlvr.asmpthings.entity.custom.CrawlerHandEntity;
+import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import com.mojang.math.Axis;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class CrawlerRenderer extends MobRenderer<CrawlerEntity, CrawlerModel<CrawlerEntity>> {
@@ -42,9 +48,33 @@ public class CrawlerRenderer extends MobRenderer<CrawlerEntity, CrawlerModel<Cra
         super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
 
         renderCrawlerArms(entity, partialTicks, poseStack, buffer, packedLight);
+
+        renderDebugPath(entity, partialTicks, poseStack, buffer);
+    }
+
+    @Override
+    protected void setupRotations(CrawlerEntity entity, PoseStack poseStack, float bob, float yBodyRot, float partialTick, float scale) {
+        super.setupRotations(entity, poseStack, bob, yBodyRot, partialTick, scale);
+        applySurfaceRotation(entity.getSurfaceNormal(), poseStack);
+    }
+
+    private void applySurfaceRotation(Direction normal, PoseStack poseStack) {
+        switch (normal) {
+            case DOWN -> poseStack.mulPose(Axis.XP.rotationDegrees(180.0F));
+            case NORTH -> poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
+            case SOUTH -> poseStack.mulPose(Axis.XP.rotationDegrees(-90.0F));
+            case EAST -> poseStack.mulPose(Axis.ZP.rotationDegrees(90.0F));
+            case WEST -> poseStack.mulPose(Axis.ZP.rotationDegrees(-90.0F));
+            default -> {
+            }
+        }
     }
 
     private void renderCrawlerArms(CrawlerEntity crawler, float partialTicks, PoseStack poseStack, MultiBufferSource buffer, int packedLight) {
+        if (!crawler.shouldRenderProceduralHands()) {
+            return;
+        }
+
         List<CrawlerHandEntity> hands = crawler.level().getEntitiesOfClass(
                 CrawlerHandEntity.class,
                 crawler.getBoundingBox().inflate(6.0D),
@@ -210,8 +240,96 @@ public class CrawlerRenderer extends MobRenderer<CrawlerEntity, CrawlerModel<Cra
         poseStack.popPose();
     }
 
+    private void renderDebugPath(CrawlerEntity crawler, float partialTicks, PoseStack poseStack, MultiBufferSource buffer) {
+        if (!crawler.shouldRenderDebugPath()) {
+            return;
+        }
+
+        List<DebugPoint> points = parseDebugPoints(crawler.getDebugPathPoints());
+
+        if (points.isEmpty()) {
+            return;
+        }
+
+        Vec3 bodyPos = crawler.getPosition(partialTicks);
+        VertexConsumer lineBuffer = buffer.getBuffer(RenderType.lines());
+
+        for (int i = 0; i < points.size() - 1; i++) {
+            Vec3 start = points.get(i).center().subtract(bodyPos);
+            Vec3 end = points.get(i + 1).center().subtract(bodyPos);
+
+            addLineVertex(lineBuffer, poseStack, start, 40, 230, 255, 255);
+            addLineVertex(lineBuffer, poseStack, end, 40, 230, 255, 255);
+        }
+
+        for (DebugPoint point : points) {
+            Vec3 local = point.center().subtract(bodyPos);
+            float red = point.normal() == Direction.UP ? 0.15F : 1.0F;
+            float green = point.normal() == Direction.DOWN ? 0.35F : 0.9F;
+            float blue = point.normal().getAxis().isHorizontal() ? 0.15F : 1.0F;
+
+            LevelRenderer.renderLineBox(
+                    poseStack,
+                    buffer.getBuffer(RenderType.lines()),
+                    new AABB(
+                            local.x - 0.12D,
+                            local.y - 0.12D,
+                            local.z - 0.12D,
+                            local.x + 0.12D,
+                            local.y + 0.12D,
+                            local.z + 0.12D
+                    ),
+                    red,
+                    green,
+                    blue,
+                    1.0F
+            );
+        }
+    }
+
+    private void addLineVertex(VertexConsumer consumer, PoseStack poseStack, Vec3 point, int red, int green, int blue, int alpha) {
+        PoseStack.Pose pose = poseStack.last();
+
+        consumer.addVertex(pose, (float) point.x, (float) point.y, (float) point.z)
+                .setColor(red, green, blue, alpha)
+                .setNormal(pose, 0.0F, 1.0F, 0.0F);
+    }
+
+    private List<DebugPoint> parseDebugPoints(String encoded) {
+        List<DebugPoint> points = new ArrayList<>();
+
+        if (encoded == null || encoded.isBlank()) {
+            return points;
+        }
+
+        String[] entries = encoded.split(";");
+
+        for (String entry : entries) {
+            String[] values = entry.split(",");
+
+            if (values.length != 4) {
+                continue;
+            }
+
+            try {
+                int x = Integer.parseInt(values[0]);
+                int y = Integer.parseInt(values[1]);
+                int z = Integer.parseInt(values[2]);
+                Direction normal = Direction.from3DDataValue(Integer.parseInt(values[3]));
+
+                points.add(new DebugPoint(new Vec3(x + 0.5D, y + 0.5D, z + 0.5D), normal));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        return points;
+    }
+
     @Override
     public ResourceLocation getTextureLocation(CrawlerEntity entity) {
         return TEXTURE;
+    }
+
+    private record DebugPoint(Vec3 center, Direction normal) {
     }
 }

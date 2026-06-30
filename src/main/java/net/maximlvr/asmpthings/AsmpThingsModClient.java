@@ -11,6 +11,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.common.NeoForge;
 import net.maximlvr.asmpthings.client.model.CrawlerModel;
 import net.maximlvr.asmpthings.client.render.CrawlerHandRenderer;
 import net.maximlvr.asmpthings.client.model.CrawlerHandModel;

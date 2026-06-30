@@ -2,6 +2,7 @@ package net.maximlvr.asmpthings.item;
 
 import net.maximlvr.asmpthings.AsmpThingsMod;
 import net.maximlvr.asmpthings.component.ModDataComponents;
+import net.maximlvr.asmpthings.item.custom.CrazyPhoneItem;
 import net.maximlvr.asmpthings.item.custom.ScratchTicketItem;
 import net.maximlvr.asmpthings.item.custom.WeatherStaff;
 import net.minecraft.world.item.Item;
@@ -30,6 +31,9 @@ public class ModItems {
     public static final DeferredItem<Item> WEATHER_TANK = ITEMS.register("weather_tank",
             () -> new Item(new Item.Properties()));
 
+    public static final DeferredItem<Item> CRAZY_PHONE = ITEMS.register("crazy_phone",
+            () -> new CrazyPhoneItem(new Item.Properties().stacksTo(1)));
+
     public static final DeferredItem<Item> GOAL_SMALL_TICKET = ITEMS.register("card_goal_small",
             () -> new ScratchTicketItem(
                     new Item.Properties()
@@ -37,11 +41,6 @@ public class ModItems {
                             .component(ModDataComponents.SCRATCH_DATA.get(), "")
                             .component(ModDataComponents.SCRATCH_PRIZE.get(), -1)
             ));
-
-    public static final DeferredItem<Item> ROLE_CARD = ITEMS.register("role_card",
-            () -> new Item(new Item.Properties()
-                    .stacksTo(1)
-                    .component(ModDataComponents.ROLE_CARD_TYPE.get(), 0)));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);

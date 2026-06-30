@@ -2,7 +2,6 @@ package net.maximlvr.asmpthings;
 
 import net.maximlvr.asmpthings.ai.AiNpcChatHandler;
 import net.maximlvr.asmpthings.block.ModBlocks;
-import net.maximlvr.asmpthings.client.ModItemProperties;
 import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.maximlvr.asmpthings.entity.ModEntities;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
@@ -25,6 +24,7 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.maximlvr.asmpthings.entity.custom.CrawlerEntity;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 
+import net.maximlvr.asmpthings.block.entity.ModBlockEntities;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(AsmpThingsMod.MOD_ID)
@@ -35,7 +35,6 @@ public class AsmpThingsMod {
     public AsmpThingsMod(IEventBus modEventBus, ModContainer modContainer) {
 
         modEventBus.addListener(this::commonSetup);
-        modEventBus.addListener(ModItemProperties::onClientSetup);
         modEventBus.addListener(this::registerAttributes);
 
         NeoForge.EVENT_BUS.register(this);
@@ -47,7 +46,9 @@ public class AsmpThingsMod {
         ModItems.register(modEventBus);
         ModDataComponents.register(modEventBus);
         ModNetworking.register(modEventBus);
+
         ModBlocks.register(modEventBus);
+        ModBlockEntities.register(modEventBus);
         ModEntities.register(modEventBus);
 
 
