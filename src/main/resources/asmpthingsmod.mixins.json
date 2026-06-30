@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.maximlvr.asmpthings.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CameraPacketManagerMixin"
+  ],
+  "client": [
+    "CameraImageTakerMixin",
+    "CameraClientEventsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
