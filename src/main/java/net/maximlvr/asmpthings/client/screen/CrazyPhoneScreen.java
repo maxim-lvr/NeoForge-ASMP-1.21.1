@@ -1,6 +1,7 @@
 package net.maximlvr.asmpthings.client.screen;
 
 import de.maxhenkel.camera.gui.ImageScreen;
+import com.mojang.blaze3d.platform.NativeImage;
 import net.maximlvr.asmpthings.integration.camera.CrazyPhoneCameraHelper;
 import net.maximlvr.asmpthings.network.payload.AddCrazyPhoneContactByNumberPayload;
 import net.maximlvr.asmpthings.network.payload.AddCrazyPhonePhotoPayload;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -24,9 +26,19 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.system.MemoryStack;
+import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CrazyPhoneScreen extends Screen {
     private static final ResourceLocation PHONE_BACKGROUND =
@@ -42,9 +54,9 @@ public class CrazyPhoneScreen extends Screen {
     private static final ResourceLocation ALBUM_ICON =
             ResourceLocation.fromNamespaceAndPath("asmpthingsmod", "textures/screens/crazyphone-album-icon.png");
     private static final ResourceLocation SMS_ICON =
-            ResourceLocation.fromNamespaceAndPath("asmpthingsmod", "textures/screens/crazyphone-sms-icon.png");
+            ResourceLocation.fromNamespaceAndPath("asmpthingsmod", "textures/screens/asmpphone-sms-icon.png");
     private static final ResourceLocation ADD_ICON =
-            ResourceLocation.fromNamespaceAndPath("asmpthingsmod", "textures/screens/crazyphone-photo-icon.png");
+            ResourceLocation.fromNamespaceAndPath("asmpthingsmod", "textures/screens/asmpphone-photo-icon.png");
     private static final ResourceLocation SEND_MESSAGE_BUTTON =
             ResourceLocation.fromNamespaceAndPath("asmpthingsmod", "textures/screens/crazyphone-send-message.png");
     private static final ResourceLocation CONTACT_ROW_BACKGROUND_1 =
@@ -66,6 +78,7 @@ public class CrazyPhoneScreen extends Screen {
     private static final int PHOTO_ROW_HEIGHT = scale(31);
     private static final int CAMERA_GRID_COLUMNS = 5;
     private static final int CAMERA_GRID_CELL = scale(20);
+    private static final int UPLOAD_ALBUM_CAPACITY = 50;
     private static final int LIST_TOP = scale(49);
     private static final int LIST_BOTTOM = scale(164);
     private static final int TEXT_PRIMARY = 0xFFFFFF;
@@ -97,10 +110,12 @@ public class CrazyPhoneScreen extends Screen {
     private Page conversationBackPage = Page.SMS;
     private PhotoEntry selectedPhoto;
     private int selectedCameraAlbumIndex = 0;
+    private int selectedUploadAlbumIndex = 0;
     private int contactScrollOffset = 0;
     private int albumScrollOffset = 0;
     private int smsScrollOffset = 0;
     private int messageScrollOffset = 0;
+    private final Map<String, UploadedTexture> uploadedTextures = new HashMap<>();
 
     public CrazyPhoneScreen(ItemStack stack, boolean mainHand) {
         super(Component.literal("Crazy Phone"));
@@ -130,7 +145,7 @@ public class CrazyPhoneScreen extends Screen {
             case CONVERSATION -> initConversation();
             case ALBUMS -> initAlbums();
             case CAMERA_ALBUM -> initCameraAlbum();
-            case ADD_PHOTO -> initAddPhoto();
+            case UPLOAD_ALBUM -> initUploadAlbum();
             case SEND_PHOTO -> initSendPhoto();
             default -> initHome();
         }
@@ -308,15 +323,15 @@ public class CrazyPhoneScreen extends Screen {
             addRenderableWidget(new InvisibleButton(
                     phoneX + scale(17), addRowY, scale(88), scale(21),
                     Component.literal("Ajouter une photo"), button -> {
-                page = Page.ADD_PHOTO;
                 photoStatus = "";
-                rebuildWidgets();
+                openUploadFilePicker();
             }));
         }
 
         int rowY = phoneY + LIST_TOP + scale(28) - albumScrollOffset;
 
         List<ItemStack> cameraAlbums = getCameraAlbums();
+        List<UploadAlbumEntry> uploadAlbums = getUploadAlbums();
 
         for (int i = 0; i < cameraAlbums.size(); i++) {
             int column = i % CAMERA_GRID_COLUMNS;
@@ -340,7 +355,32 @@ public class CrazyPhoneScreen extends Screen {
 
         rowY += getCameraAlbumGridHeight(cameraAlbums.size());
 
+        for (int i = 0; i < uploadAlbums.size(); i++) {
+            int column = i % CAMERA_GRID_COLUMNS;
+            int row = i / CAMERA_GRID_COLUMNS;
+            int albumX = phoneX + scale(18) + column * CAMERA_GRID_CELL;
+            int albumY = rowY + row * CAMERA_GRID_CELL;
+            int albumIndex = i;
+
+            if (albumY + CAMERA_GRID_CELL >= phoneY + LIST_TOP && albumY <= phoneY + LIST_BOTTOM) {
+                addRenderableWidget(new InvisibleButton(
+                        albumX, albumY, scale(18), scale(18),
+                        Component.literal(uploadAlbums.get(i).name()), button -> {
+                    selectedUploadAlbumIndex = albumIndex;
+                    page = Page.UPLOAD_ALBUM;
+                    albumScrollOffset = 0;
+                    rebuildWidgets();
+                }));
+            }
+        }
+
+        rowY += getCameraAlbumGridHeight(uploadAlbums.size());
+
         for (PhotoEntry photo : getPhotos()) {
+            if ("upload".equals(photo.type())) {
+                continue;
+            }
+
             if (rowY + PHOTO_ROW_HEIGHT >= phoneY + LIST_TOP && rowY <= phoneY + LIST_BOTTOM) {
                 addRenderableWidget(new InvisibleButton(
                         phoneX + scale(17), rowY, scale(88), PHOTO_ROW_HEIGHT,
@@ -377,6 +417,29 @@ public class CrazyPhoneScreen extends Screen {
                         imageX, imageY, scale(18), scale(18),
                         Component.literal("Voir photo"), button -> openCameraImage(image)
                 ));
+            }
+        }
+
+        addSystemButtons(phoneX, phoneY);
+    }
+
+    private void initUploadAlbum() {
+        int phoneX = (this.width - PHONE_WIDTH) / 2;
+        int phoneY = (this.height - PHONE_HEIGHT) / 2;
+        int gridTop = phoneY + LIST_TOP - albumScrollOffset;
+        List<PhotoEntry> photos = getSelectedUploadAlbumPhotos();
+
+        for (int i = 0; i < photos.size(); i++) {
+            int column = i % CAMERA_GRID_COLUMNS;
+            int row = i / CAMERA_GRID_COLUMNS;
+            int imageX = phoneX + scale(18) + column * CAMERA_GRID_CELL;
+            int imageY = gridTop + row * CAMERA_GRID_CELL;
+
+            if (imageY + CAMERA_GRID_CELL >= phoneY + LIST_TOP && imageY <= phoneY + LIST_BOTTOM) {
+                addRenderableWidget(new InvisibleButton(
+                        imageX, imageY, scale(18), scale(18),
+                        Component.literal(photos.get(i).title()), button -> {
+                }));
             }
         }
 
@@ -504,11 +567,9 @@ public class CrazyPhoneScreen extends Screen {
             page = Page.CONTACTS;
         } else if (page == Page.CONVERSATION) {
             page = conversationBackPage;
-        } else if (page == Page.ADD_PHOTO) {
-            page = Page.ALBUMS;
         } else if (page == Page.SEND_PHOTO) {
             page = Page.ALBUMS;
-        } else if (page == Page.CAMERA_ALBUM) {
+        } else if (page == Page.CAMERA_ALBUM || page == Page.UPLOAD_ALBUM) {
             page = Page.ALBUMS;
         } else {
             page = Page.HOME;
@@ -645,6 +706,54 @@ public class CrazyPhoneScreen extends Screen {
         return photos;
     }
 
+    private List<PhotoEntry> getUploadPhotos() {
+        List<PhotoEntry> uploads = new ArrayList<>();
+
+        for (PhotoEntry photo : getPhotos()) {
+            if ("upload".equals(photo.type())) {
+                uploads.add(photo);
+            }
+        }
+
+        return uploads;
+    }
+
+    private List<UploadAlbumEntry> getUploadAlbums() {
+        List<PhotoEntry> uploads = getUploadPhotos();
+        List<UploadAlbumEntry> albums = new ArrayList<>();
+
+        for (int start = 0; start < uploads.size(); start += UPLOAD_ALBUM_CAPACITY) {
+            int index = start / UPLOAD_ALBUM_CAPACITY;
+            String name = index == 0 ? "upload" : "upload" + (index + 1);
+            int end = Math.min(start + UPLOAD_ALBUM_CAPACITY, uploads.size());
+            albums.add(new UploadAlbumEntry(name, start, end));
+        }
+
+        return albums;
+    }
+
+    private List<PhotoEntry> getSelectedUploadAlbumPhotos() {
+        List<PhotoEntry> uploads = getUploadPhotos();
+        int start = selectedUploadAlbumIndex * UPLOAD_ALBUM_CAPACITY;
+
+        if (start < 0 || start >= uploads.size()) {
+            return List.of();
+        }
+
+        int end = Math.min(start + UPLOAD_ALBUM_CAPACITY, uploads.size());
+        return uploads.subList(start, end);
+    }
+
+    private String getSelectedUploadAlbumName() {
+        List<UploadAlbumEntry> albums = getUploadAlbums();
+
+        if (selectedUploadAlbumIndex < 0 || selectedUploadAlbumIndex >= albums.size()) {
+            return "upload";
+        }
+
+        return albums.get(selectedUploadAlbumIndex).name();
+    }
+
     private List<MessageEntry> getMessages(String contactNumber) {
         List<MessageEntry> messages = new ArrayList<>();
         ListTag conversations = getTag().getList("conversations", 10);
@@ -730,6 +839,129 @@ public class CrazyPhoneScreen extends Screen {
         PacketDistributor.sendToServer(new AddCrazyPhoneContactByNumberPayload(mainHand, name, number));
     }
 
+    private void openUploadFilePicker() {
+        if (minecraft == null) {
+            return;
+        }
+
+        var client = minecraft;
+
+        new Thread(() -> {
+            String path;
+
+            try (MemoryStack memoryStack = MemoryStack.stackPush()) {
+                var filters = memoryStack.mallocPointer(3);
+                filters.put(memoryStack.UTF8("*.png"));
+                filters.put(memoryStack.UTF8("*.jpg"));
+                filters.put(memoryStack.UTF8("*.jpeg"));
+                filters.flip();
+
+                path = TinyFileDialogs.tinyfd_openFileDialog(
+                        "Ajouter une photo",
+                        null,
+                        filters,
+                        "Images",
+                        false
+                );
+            }
+
+            if (path == null || path.isEmpty()) {
+                return;
+            }
+
+            client.execute(() -> addUploadedPhoto(new File(path)));
+        }, "CrazyPhoneUploadPicker").start();
+    }
+
+    private void addUploadedPhoto(File file) {
+        if (!file.isFile()) {
+            photoStatus = "Image introuvable";
+            photoStatusColor = TEXT_ERROR;
+            rebuildWidgets();
+            return;
+        }
+
+        String title = file.getName();
+        String path;
+
+        try {
+            path = copyUploadedPhoto(file).toAbsolutePath().toString();
+        } catch (IOException exception) {
+            photoStatus = "Image introuvable";
+            photoStatusColor = TEXT_ERROR;
+            rebuildWidgets();
+            return;
+        }
+
+        if (getUploadedTexture(path) == null) {
+            photoStatus = "Image introuvable";
+            photoStatusColor = TEXT_ERROR;
+            rebuildWidgets();
+            return;
+        }
+
+        addPhotoLocally(title, path, "upload");
+        PacketDistributor.sendToServer(new AddCrazyPhonePhotoPayload(mainHand, title, path, "upload"));
+        photoStatus = "Photo ajoutee";
+        photoStatusColor = TEXT_SUCCESS;
+        page = Page.ALBUMS;
+        albumScrollOffset = getMaxAlbumScroll();
+        rebuildWidgets();
+    }
+
+    private Path copyUploadedPhoto(File file) throws IOException {
+        if (minecraft == null) {
+            throw new IOException("Missing client");
+        }
+
+        String number = getTag().getString("number");
+
+        if (number.isEmpty()) {
+            number = "unknown";
+        }
+
+        Path directory = minecraft.gameDirectory.toPath()
+                .resolve("asmpthings_uploads")
+                .resolve("crazyphone")
+                .resolve(sanitizeFilePart(number));
+        Files.createDirectories(directory);
+
+        String extension = getFileExtension(file.getName());
+        String fileName = sanitizeFilePart(stripFileExtension(file.getName()));
+
+        if (fileName.isEmpty()) {
+            fileName = "photo";
+        }
+
+        Path target = directory.resolve(fileName + "_" + System.currentTimeMillis() + extension);
+        Files.copy(file.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
+        return target;
+    }
+
+    private String getFileExtension(String fileName) {
+        int dotIndex = fileName.lastIndexOf('.');
+
+        if (dotIndex < 0 || dotIndex == fileName.length() - 1) {
+            return ".png";
+        }
+
+        return fileName.substring(dotIndex).toLowerCase();
+    }
+
+    private String stripFileExtension(String fileName) {
+        int dotIndex = fileName.lastIndexOf('.');
+
+        if (dotIndex <= 0) {
+            return fileName;
+        }
+
+        return fileName.substring(0, dotIndex);
+    }
+
+    private String sanitizeFilePart(String value) {
+        return value.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
     private void addCustomPhoto() {
         String title = photoTitleField == null ? "" : photoTitleField.getValue().trim();
         String texture = photoTextureField == null ? "" : photoTextureField.getValue().trim();
@@ -748,8 +980,8 @@ public class CrazyPhoneScreen extends Screen {
             return;
         }
 
-        addPhotoLocally(title, normalizedTexture);
-        PacketDistributor.sendToServer(new AddCrazyPhonePhotoPayload(mainHand, title, normalizedTexture));
+        addPhotoLocally(title, normalizedTexture, "custom");
+        PacketDistributor.sendToServer(new AddCrazyPhonePhotoPayload(mainHand, title, normalizedTexture, "custom"));
         page = Page.ALBUMS;
         albumScrollOffset = 0;
         rebuildWidgets();
@@ -864,13 +1096,13 @@ public class CrazyPhoneScreen extends Screen {
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 
-    private void addPhotoLocally(String title, String texture) {
+    private void addPhotoLocally(String title, String texture, String type) {
         CompoundTag tag = getTag();
         ListTag photos = tag.getList("photos", 10);
         CompoundTag photo = new CompoundTag();
         photo.putString("title", title);
         photo.putString("texture", texture);
-        photo.putString("type", "custom");
+        photo.putString("type", type);
         photos.add(photo);
         tag.put("photos", photos);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
@@ -922,7 +1154,7 @@ public class CrazyPhoneScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (page != Page.CONTACTS && page != Page.SMS && page != Page.CONVERSATION && page != Page.ALBUMS && page != Page.CAMERA_ALBUM && page != Page.SEND_PHOTO) {
+        if (page != Page.CONTACTS && page != Page.SMS && page != Page.CONVERSATION && page != Page.ALBUMS && page != Page.CAMERA_ALBUM && page != Page.UPLOAD_ALBUM && page != Page.SEND_PHOTO) {
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         }
 
@@ -933,7 +1165,7 @@ public class CrazyPhoneScreen extends Screen {
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         }
 
-        int maxScroll = page == Page.ALBUMS || page == Page.CAMERA_ALBUM ? getMaxAlbumScroll() : page == Page.CONVERSATION ? getMaxMessageScroll() : page == Page.SMS ? getMaxSmsScroll() : getMaxContactScroll();
+        int maxScroll = page == Page.ALBUMS || page == Page.CAMERA_ALBUM || page == Page.UPLOAD_ALBUM ? getMaxAlbumScroll() : page == Page.CONVERSATION ? getMaxMessageScroll() : page == Page.SMS ? getMaxSmsScroll() : getMaxContactScroll();
 
         if (maxScroll <= 0) {
             return true;
@@ -972,7 +1204,15 @@ public class CrazyPhoneScreen extends Screen {
             return Math.max(0, contentHeight - viewportHeight);
         }
 
-        int contentHeight = scale(28) + getCameraAlbumGridHeight(getCameraAlbums().size()) + getPhotos().size() * PHOTO_ROW_HEIGHT;
+        if (page == Page.UPLOAD_ALBUM) {
+            int contentHeight = getCameraAlbumGridHeight(getSelectedUploadAlbumPhotos().size());
+            int viewportHeight = LIST_BOTTOM - LIST_TOP;
+            return Math.max(0, contentHeight - viewportHeight);
+        }
+
+        int uploadAlbumsHeight = getCameraAlbumGridHeight(getUploadAlbums().size());
+        int customPhotoCount = getPhotos().size() - getUploadPhotos().size();
+        int contentHeight = scale(28) + getCameraAlbumGridHeight(getCameraAlbums().size()) + uploadAlbumsHeight + customPhotoCount * PHOTO_ROW_HEIGHT;
         int viewportHeight = LIST_BOTTOM - LIST_TOP;
         return Math.max(0, contentHeight - viewportHeight);
     }
@@ -1043,8 +1283,8 @@ public class CrazyPhoneScreen extends Screen {
             renderAlbumList(guiGraphics, phoneX, phoneY);
         } else if (page == Page.CAMERA_ALBUM) {
             renderCameraAlbum(guiGraphics, phoneX, phoneY);
-        } else if (page == Page.ADD_PHOTO) {
-            renderAddPhoto(guiGraphics, phoneX, phoneY);
+        } else if (page == Page.UPLOAD_ALBUM) {
+            renderUploadAlbum(guiGraphics, phoneX, phoneY);
         } else if (page == Page.SEND_PHOTO) {
             renderSendPhoto(guiGraphics, phoneX, phoneY);
         }
@@ -1062,9 +1302,9 @@ public class CrazyPhoneScreen extends Screen {
             case SMS -> "SMS";
             case ADD_CONTACT -> "Ajouter";
             case CONVERSATION -> "Discussion";
-            case ADD_PHOTO -> "Ajouter";
             case SEND_PHOTO -> "Envoyer";
             case CAMERA_ALBUM -> "Camera";
+            case UPLOAD_ALBUM -> getSelectedUploadAlbumName();
             case ALBUMS -> "Albums";
             default -> "";
         };
@@ -1080,9 +1320,9 @@ public class CrazyPhoneScreen extends Screen {
             case SMS -> getConversations().size() + " discussion(s)";
             case ADD_CONTACT -> "Numero";
             case CONVERSATION -> selectedContact == null ? "" : trimToWidth(selectedContact.name(), scale(86));
-            case ADD_PHOTO -> "Photo custom";
             case SEND_PHOTO -> selectedPhoto == null ? "Choisir contact" : trimToWidth(selectedPhoto.title(), scale(86));
             case CAMERA_ALBUM -> getSelectedCameraAlbumImages().size() + " photo(s)";
+            case UPLOAD_ALBUM -> getSelectedUploadAlbumPhotos().size() + " photo(s)";
             case LOCKED -> "Verrouille";
             case ALBUMS -> getTotalPhotoCount() + " photo(s)";
             default -> tag.getString("number");
@@ -1207,6 +1447,7 @@ public class CrazyPhoneScreen extends Screen {
     private void renderAlbumList(GuiGraphics guiGraphics, int phoneX, int phoneY) {
         List<PhotoEntry> photos = getPhotos();
         List<ItemStack> cameraAlbums = getCameraAlbums();
+        List<UploadAlbumEntry> uploadAlbums = getUploadAlbums();
         int cameraPhotoCount = getCameraPhotoCount();
         int listTop = phoneY + LIST_TOP;
         int listBottom = phoneY + LIST_BOTTOM;
@@ -1223,12 +1464,21 @@ public class CrazyPhoneScreen extends Screen {
             rowY += getCameraAlbumGridHeight(cameraAlbums.size());
         }
 
+        if (!uploadAlbums.isEmpty()) {
+            renderUploadAlbumGrid(guiGraphics, uploadAlbums, phoneX, rowY, listTop, listBottom);
+            rowY += getCameraAlbumGridHeight(uploadAlbums.size());
+        }
+
         if (photos.isEmpty() && cameraPhotoCount <= 0) {
             drawCenteredText(guiGraphics, "Aucune photo", phoneX + PHONE_WIDTH / 2, rowY + scale(16), TEXT_SECONDARY);
             return;
         }
 
         for (PhotoEntry photo : photos) {
+            if ("upload".equals(photo.type())) {
+                continue;
+            }
+
             if (rowY + PHOTO_ROW_HEIGHT >= listTop && rowY <= listBottom) {
                 renderPhotoRow(guiGraphics, photo, phoneX + scale(18), rowY);
                 drawSeparator(guiGraphics, phoneX, rowY + PHOTO_ROW_HEIGHT - scale(3));
@@ -1343,6 +1593,29 @@ public class CrazyPhoneScreen extends Screen {
         }
     }
 
+    private void renderUploadAlbum(GuiGraphics guiGraphics, int phoneX, int phoneY) {
+        List<PhotoEntry> photos = getSelectedUploadAlbumPhotos();
+        int listTop = phoneY + LIST_TOP;
+        int listBottom = phoneY + LIST_BOTTOM;
+        int gridTop = listTop - albumScrollOffset;
+
+        if (photos.isEmpty()) {
+            drawCenteredText(guiGraphics, "Aucune photo", phoneX + PHONE_WIDTH / 2, gridTop + scale(16), TEXT_SECONDARY);
+            return;
+        }
+
+        for (int i = 0; i < photos.size(); i++) {
+            int column = i % CAMERA_GRID_COLUMNS;
+            int row = i / CAMERA_GRID_COLUMNS;
+            int imageX = phoneX + scale(18) + column * CAMERA_GRID_CELL;
+            int imageY = gridTop + row * CAMERA_GRID_CELL;
+
+            if (imageY + CAMERA_GRID_CELL >= listTop && imageY <= listBottom) {
+                renderUploadedPhotoItem(guiGraphics, photos.get(i), imageX, imageY);
+            }
+        }
+    }
+
     private int getCameraAlbumGridHeight(int itemCount) {
         if (itemCount <= 0) {
             return 0;
@@ -1365,6 +1638,20 @@ public class CrazyPhoneScreen extends Screen {
         }
     }
 
+    private void renderUploadAlbumGrid(GuiGraphics guiGraphics, List<UploadAlbumEntry> albums, int phoneX, int y, int listTop, int listBottom) {
+        for (int i = 0; i < albums.size(); i++) {
+            int column = i % CAMERA_GRID_COLUMNS;
+            int row = i / CAMERA_GRID_COLUMNS;
+            int albumX = phoneX + scale(18) + column * CAMERA_GRID_CELL;
+            int albumY = y + row * CAMERA_GRID_CELL;
+
+            if (albumY + CAMERA_GRID_CELL >= listTop && albumY <= listBottom) {
+                guiGraphics.blit(ALBUM_ICON, albumX + 1, albumY + 1, scale(16), scale(16), 0, 0, 52, 62, 52, 62);
+                drawCenteredText(guiGraphics, trimToWidth(albums.get(i).name(), scale(20)), albumX + scale(9), albumY + scale(16), TEXT_PRIMARY);
+            }
+        }
+    }
+
     private void renderPhotoRow(GuiGraphics guiGraphics, PhotoEntry photo, int x, int y) {
         ResourceLocation texture = ResourceLocation.tryParse(photo.texture());
 
@@ -1380,6 +1667,55 @@ public class CrazyPhoneScreen extends Screen {
 
     private void renderCameraPhotoItem(GuiGraphics guiGraphics, ItemStack image, int x, int y) {
         guiGraphics.renderItem(image, x + 1, y + 1);
+    }
+
+    private UploadedTexture getUploadedTexture(String path) {
+        if (minecraft == null || path == null || path.isEmpty()) {
+            return null;
+        }
+
+        UploadedTexture cached = uploadedTextures.get(path);
+
+        if (cached != null) {
+            return cached;
+        }
+
+        try (FileInputStream inputStream = new FileInputStream(path)) {
+            NativeImage image = NativeImage.read(inputStream);
+            ResourceLocation location = ResourceLocation.fromNamespaceAndPath(
+                    "asmpthingsmod",
+                    "dynamic/crazyphone_upload/" + Integer.toHexString(path.hashCode())
+            );
+            minecraft.getTextureManager().register(location, new DynamicTexture(image));
+            UploadedTexture uploadedTexture = new UploadedTexture(location, image.getWidth(), image.getHeight());
+            uploadedTextures.put(path, uploadedTexture);
+            return uploadedTexture;
+        } catch (IOException exception) {
+            return null;
+        }
+    }
+
+    private void renderUploadedPhotoItem(GuiGraphics guiGraphics, PhotoEntry photo, int x, int y) {
+        UploadedTexture uploadedTexture = getUploadedTexture(photo.texture());
+
+        if (uploadedTexture == null) {
+            guiGraphics.fill(x + 1, y + 1, x + scale(17), y + scale(17), 0xFF324154);
+            return;
+        }
+
+        guiGraphics.blit(
+                uploadedTexture.location(),
+                x + 1,
+                y + 1,
+                scale(16),
+                scale(16),
+                0,
+                0,
+                uploadedTexture.width(),
+                uploadedTexture.height(),
+                uploadedTexture.width(),
+                uploadedTexture.height()
+        );
     }
 
     private void drawSeparator(GuiGraphics guiGraphics, int phoneX, int y) {
@@ -1449,7 +1785,7 @@ public class CrazyPhoneScreen extends Screen {
         CONVERSATION,
         ALBUMS,
         CAMERA_ALBUM,
-        ADD_PHOTO,
+        UPLOAD_ALBUM,
         SEND_PHOTO,
         LOCKED
     }
@@ -1458,6 +1794,12 @@ public class CrazyPhoneScreen extends Screen {
     }
 
     private record PhotoEntry(String title, String texture, String type) {
+    }
+
+    private record UploadAlbumEntry(String name, int start, int end) {
+    }
+
+    private record UploadedTexture(ResourceLocation location, int width, int height) {
     }
 
     private record ConversationEntry(String number, String displayName, String preview) {

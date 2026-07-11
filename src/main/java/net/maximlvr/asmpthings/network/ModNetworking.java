@@ -1,31 +1,49 @@
 package net.maximlvr.asmpthings.network;
 
 import net.maximlvr.asmpthings.component.ModDataComponents;
+import net.maximlvr.asmpthings.bank.BankAccount;
+import net.maximlvr.asmpthings.bank.BankSavedData;
+import net.maximlvr.asmpthings.bank.SavedIban;
+import net.maximlvr.asmpthings.block.custom.CardReaderBlock;
+import net.maximlvr.asmpthings.block.entity.CardReaderBlockEntity;
 import net.maximlvr.asmpthings.integration.camera.CrazyPhoneCameraHelper;
+import net.maximlvr.asmpthings.item.custom.BlueCardItem;
 import net.maximlvr.asmpthings.item.ModItems;
 import net.maximlvr.asmpthings.network.payload.AddCrazyPhonePhotoPayload;
 import net.maximlvr.asmpthings.network.payload.AddCrazyPhoneContactByNumberPayload;
+import net.maximlvr.asmpthings.network.payload.BankActionPayload;
+import net.maximlvr.asmpthings.network.payload.BankSyncPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneContactResultPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneMessageResultPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhonePhotoResultPayload;
+import net.maximlvr.asmpthings.network.payload.OpenBankPayload;
+import net.maximlvr.asmpthings.network.payload.OpenCardReaderConfigPayload;
 import net.maximlvr.asmpthings.network.payload.OpenCrazyPhonePayload;
 import net.maximlvr.asmpthings.network.payload.OpenScratchTicketPayload;
+import net.maximlvr.asmpthings.network.payload.SaveCardReaderConfigPayload;
 import net.maximlvr.asmpthings.network.payload.ScratchTicketScratchPayload;
 import net.maximlvr.asmpthings.network.payload.SendCrazyPhoneMessagePayload;
 import net.maximlvr.asmpthings.network.payload.SendCrazyPhonePhotoPayload;
 import net.maximlvr.asmpthings.network.payload.SetCrazyPhoneLockedPayload;
 import net.maximlvr.asmpthings.network.payload.SetupCrazyPhonePayload;
+import net.maximlvr.asmpthings.network.payload.OpenCardReaderPinPayload;
+import net.maximlvr.asmpthings.network.payload.SubmitCardReaderPinPayload;
 import net.maximlvr.asmpthings.network.payload.TakeCrazyPhonePhotoPayload;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
+import java.util.List;
 import java.util.UUID;
 
 
@@ -33,6 +51,7 @@ public class ModNetworking {
     private static final int GRID_COLS = 64;
     private static final int GRID_ROWS = 64;
     private static final int TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+    private static final int MAX_BANK_ACCOUNTS = 5;
 
     public static void register(IEventBus eventBus) {
         eventBus.addListener(ModNetworking::registerPayloads);
@@ -120,6 +139,101 @@ public class ModNetworking {
                         }
 
                         net.maximlvr.asmpthings.client.ClientHooks.openCrazyPhoneScreen(stack, payload.mainHand());
+                    });
+                }
+        );
+
+        registrar.playToClient(
+                OpenBankPayload.TYPE,
+                OpenBankPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        net.maximlvr.asmpthings.client.ClientHooks.openBankScreen();
+                    });
+                }
+        );
+
+        registrar.playToServer(
+                BankActionPayload.TYPE,
+                BankActionPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
+
+                        handleBankAction(player, payload);
+                    });
+                }
+        );
+
+        registrar.playToClient(
+                BankSyncPayload.TYPE,
+                BankSyncPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (net.minecraft.client.Minecraft.getInstance().screen instanceof net.maximlvr.asmpthings.client.screen.BankScreen screen) {
+                            screen.handleSync(payload);
+                        }
+                    });
+                }
+        );
+
+        registrar.playToClient(
+                OpenCardReaderConfigPayload.TYPE,
+                OpenCardReaderConfigPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> net.maximlvr.asmpthings.client.ClientHooks.openCardReaderConfigScreen(
+                            payload.pos(),
+                            payload.targetAccountId(),
+                            payload.amount()
+                    ));
+                }
+        );
+
+        registrar.playToServer(
+                SaveCardReaderConfigPayload.TYPE,
+                SaveCardReaderConfigPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
+
+                        if (player.level().getBlockEntity(payload.pos()) instanceof CardReaderBlockEntity blockEntity
+                                && player.getUUID().equals(blockEntity.getOwner())) {
+                            String target = sanitizeDigits(payload.targetAccountId(), 4);
+                            int amount = Math.max(1, payload.amount());
+
+                            if (BankSavedData.get(player.server).getAccount(target) != null) {
+                                blockEntity.configure(target, amount);
+                                player.displayClientMessage(Component.literal("Lecteur configure."), true);
+                            } else {
+                                player.displayClientMessage(Component.literal("Compte receveur introuvable."), true);
+                            }
+                        }
+                    });
+                }
+        );
+
+        registrar.playToClient(
+                OpenCardReaderPinPayload.TYPE,
+                OpenCardReaderPinPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> net.maximlvr.asmpthings.client.ClientHooks.openCardReaderPinScreen(payload.pos()));
+                }
+        );
+
+        registrar.playToServer(
+                SubmitCardReaderPinPayload.TYPE,
+                SubmitCardReaderPinPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
+
+                        handleCardReaderPayment(player, payload);
                     });
                 }
         );
@@ -240,7 +354,8 @@ public class ModNetworking {
                         }
 
                         String title = sanitize(payload.title(), 32);
-                        String texture = sanitize(payload.texture(), 128);
+                        String texture = sanitize(payload.texture(), 512);
+                        String type = sanitize(payload.photoType(), 16);
 
                         if (title.isEmpty() || texture.isEmpty()) {
                             return;
@@ -252,7 +367,7 @@ public class ModNetworking {
                         CompoundTag photo = new CompoundTag();
                         photo.putString("title", title);
                         photo.putString("texture", texture);
-                        photo.putString("type", "custom");
+                        photo.putString("type", type.isEmpty() ? "custom" : type);
                         photos.add(photo);
                         tag.put("photos", photos);
                         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
@@ -427,6 +542,258 @@ public class ModNetworking {
         }
 
         return trimmed.substring(0, maxLength);
+    }
+
+    private static String sanitizeDigits(String value, int maxLength) {
+        String sanitized = sanitize(value, maxLength).replaceAll("[^0-9]", "");
+
+        if (sanitized.length() <= maxLength) {
+            return sanitized;
+        }
+
+        return sanitized.substring(0, maxLength);
+    }
+
+    private static void handleBankAction(ServerPlayer player, BankActionPayload payload) {
+        BankSavedData bank = BankSavedData.get(player.server);
+        String selectedId = sanitizeDigits(payload.accountId(), 4);
+        String message = "";
+
+        switch (sanitize(payload.action(), 16)) {
+            case "create" -> {
+                String name = sanitize(payload.text(), 24);
+
+                if (name.isEmpty()) {
+                    message = "Nom de compte requis.";
+                } else if (bank.getAccounts(player.getUUID()).size() >= MAX_BANK_ACCOUNTS) {
+                    message = "Maximum 5 comptes.";
+                } else {
+                    BankAccount account = bank.createAccount(player.getUUID(), name, player.getRandom());
+                    selectedId = account.id();
+                    player.displayClientMessage(Component.literal("Compte " + account.id() + " cree."), false);
+                }
+            }
+            case "deposit" -> {
+                int amount = Math.max(0, payload.amount());
+
+                if (!ownsAccount(player, bank, selectedId)) {
+                    message = "Selectionne un de tes comptes.";
+                } else if (amount <= 0 || countCrazyCoins(player) < amount) {
+                    message = "Pas assez de crazycoins sur toi.";
+                } else {
+                    removeCrazyCoins(player, amount);
+                    bank.deposit(selectedId, amount);
+                    message = "Depot effectue.";
+                }
+            }
+            case "withdraw" -> {
+                int amount = Math.max(0, payload.amount());
+
+                if (!ownsAccount(player, bank, selectedId)) {
+                    message = "Selectionne un de tes comptes.";
+                } else if (!bank.withdraw(selectedId, amount)) {
+                    message = "Solde insuffisant.";
+                } else {
+                    giveCrazyCoins(player, amount);
+                    message = "Retrait effectue.";
+                }
+            }
+            case "transfer" -> {
+                String targetId = sanitizeDigits(payload.targetAccountId(), 4);
+                int amount = Math.max(0, payload.amount());
+
+                if (!ownsAccount(player, bank, selectedId)) {
+                    message = "Selectionne un de tes comptes.";
+                } else if (!bank.transfer(selectedId, targetId, amount)) {
+                    message = "Transfert impossible.";
+                } else {
+                    message = "Transfert envoye.";
+                }
+            }
+            case "card" -> {
+                if (!ownsAccount(player, bank, selectedId)) {
+                    message = "Selectionne un de tes comptes.";
+                } else {
+                    String pin = sanitizeDigits(payload.pin(), 6);
+                    String color = sanitize(payload.targetAccountId(), 16);
+
+                    if (pin.length() < 4) {
+                        message = "Code de carte: 4 chiffres minimum.";
+                    } else if (cardItemForColor(color) == null) {
+                        message = "Choisis une couleur.";
+                    } else {
+                        String cardName = sanitize(payload.text(), 32);
+                        giveBankCard(player, selectedId, cardName.isEmpty() ? "Carte bancaire" : cardName, pin, color);
+                        message = "Carte generee.";
+                    }
+                }
+            }
+            case "save_iban" -> {
+                String targetId = sanitizeDigits(payload.targetAccountId(), 4);
+                String name = sanitize(payload.text(), 24);
+
+                if (name.isEmpty() || targetId.length() != 4) {
+                    message = "Pseudo et IBAN requis.";
+                } else if (bank.getAccount(targetId) == null) {
+                    message = "IBAN introuvable.";
+                } else {
+                    bank.saveIban(player.getUUID(), name, targetId);
+                    message = "IBAN sauvegarde.";
+                }
+            }
+            default -> message = "";
+        }
+
+        sendBankSync(player, selectedId, message);
+    }
+
+    private static void handleCardReaderPayment(ServerPlayer player, SubmitCardReaderPinPayload payload) {
+        ItemStack stack = payload.mainHand() ? player.getMainHandItem() : player.getOffhandItem();
+
+        if (!ModItems.isBankCard(stack)) {
+            player.displayClientMessage(Component.literal("Carte bancaire introuvable."), true);
+            return;
+        }
+
+        if (!(player.level().getBlockEntity(payload.pos()) instanceof CardReaderBlockEntity blockEntity)) {
+            return;
+        }
+
+        BankSavedData bank = BankSavedData.get(player.server);
+        String cardAccountId = BlueCardItem.getAccountId(stack);
+        String cardPin = BlueCardItem.getPin(stack);
+
+        if (!sanitizeDigits(payload.pin(), 6).equals(cardPin)) {
+            player.displayClientMessage(Component.literal("Code incorrect."), true);
+            return;
+        }
+
+        if (blockEntity.getTargetAccountId().isEmpty() || bank.getAccount(blockEntity.getTargetAccountId()) == null) {
+            player.displayClientMessage(Component.literal("Lecteur non configure."), true);
+            return;
+        }
+
+        if (!bank.transfer(cardAccountId, blockEntity.getTargetAccountId(), blockEntity.getAmount())) {
+            player.displayClientMessage(Component.literal("Paiement refuse."), true);
+            return;
+        }
+
+        BlockState state = player.level().getBlockState(payload.pos());
+
+        if (state.getBlock() instanceof CardReaderBlock && !state.getValue(CardReaderBlock.POWERED)) {
+            player.level().setBlock(payload.pos(), state.setValue(CardReaderBlock.POWERED, true), 3);
+            player.level().scheduleTick(payload.pos(), state.getBlock(), 20);
+            player.level().updateNeighborsAt(payload.pos(), state.getBlock());
+        }
+
+        player.displayClientMessage(Component.literal("Paiement accepte."), true);
+    }
+
+    private static boolean ownsAccount(ServerPlayer player, BankSavedData bank, String accountId) {
+        BankAccount account = bank.getAccount(accountId);
+        return account != null && account.owner().equals(player.getUUID());
+    }
+
+    public static void sendBankSync(ServerPlayer player, String selectedAccountId, String message) {
+        BankSavedData bank = BankSavedData.get(player.server);
+        List<BankAccount> accounts = bank.getAccounts(player.getUUID());
+        StringBuilder builder = new StringBuilder();
+        StringBuilder savedIbanBuilder = new StringBuilder();
+
+        for (BankAccount account : accounts) {
+            if (!builder.isEmpty()) {
+                builder.append('\n');
+            }
+
+            builder.append(account.id())
+                    .append('|')
+                    .append(account.name().replace("|", " "))
+                    .append('|')
+                    .append(account.balance());
+        }
+
+        if ((selectedAccountId == null || selectedAccountId.isEmpty()) && !accounts.isEmpty()) {
+            selectedAccountId = accounts.getFirst().id();
+        }
+
+        for (SavedIban savedIban : bank.getSavedIbans(player.getUUID())) {
+            if (!savedIbanBuilder.isEmpty()) {
+                savedIbanBuilder.append('\n');
+            }
+
+            savedIbanBuilder.append(savedIban.name().replace("|", " "))
+                    .append('|')
+                    .append(savedIban.iban());
+        }
+
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
+                player,
+                new BankSyncPayload(builder.toString(), savedIbanBuilder.toString(), selectedAccountId == null ? "" : selectedAccountId, countCrazyCoins(player), message)
+        );
+    }
+
+    private static int countCrazyCoins(ServerPlayer player) {
+        int count = 0;
+
+        for (ItemStack stack : player.getInventory().items) {
+            if (stack.is(ModItems.CRAZY_COIN.get())) {
+                count += stack.getCount();
+            }
+        }
+
+        return count;
+    }
+
+    private static void removeCrazyCoins(ServerPlayer player, int amount) {
+        int remaining = amount;
+
+        for (ItemStack stack : player.getInventory().items) {
+            if (!stack.is(ModItems.CRAZY_COIN.get())) {
+                continue;
+            }
+
+            int removed = Math.min(remaining, stack.getCount());
+            stack.shrink(removed);
+            remaining -= removed;
+
+            if (remaining <= 0) {
+                break;
+            }
+        }
+    }
+
+    private static void giveCrazyCoins(ServerPlayer player, int amount) {
+        int remaining = amount;
+
+        while (remaining > 0) {
+            int count = Math.min(64, remaining);
+            player.getInventory().placeItemBackInInventory(new ItemStack(ModItems.CRAZY_COIN.get(), count));
+            remaining -= count;
+        }
+    }
+
+    private static void giveBankCard(ServerPlayer player, String accountId, String cardName, String pin, String color) {
+        Item item = cardItemForColor(color);
+
+        if (item == null) {
+            return;
+        }
+
+        ItemStack stack = new ItemStack(item);
+        BlueCardItem.setup(stack, accountId, pin);
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(cardName));
+        player.getInventory().placeItemBackInInventory(stack);
+    }
+
+    private static Item cardItemForColor(String color) {
+        return switch (color) {
+            case "blue" -> ModItems.BLUE_CARD.get();
+            case "red" -> ModItems.RED_CARD.get();
+            case "green" -> ModItems.GREEN_CARD.get();
+            case "black" -> ModItems.BLACK_CARD.get();
+            case "grey" -> ModItems.GREY_CARD.get();
+            default -> null;
+        };
     }
 
     private static void addPhoneMessage(ItemStack stack, String conversationNumber, String fromNumber, String toNumber, String text, boolean outgoing, long time) {

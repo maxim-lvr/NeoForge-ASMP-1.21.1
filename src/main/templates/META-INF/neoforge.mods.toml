@@ -91,7 +91,7 @@ config="${mod_id}.mixins.json"
 [[dependencies.${mod_id}]]
     modId="camera"
     type="required"
-    versionRange="[1.21.1-1.0.21,)"
+    versionRange="[0,)"
     ordering="AFTER"
     side="BOTH"
 

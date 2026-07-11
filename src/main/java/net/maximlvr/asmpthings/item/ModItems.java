@@ -2,10 +2,12 @@ package net.maximlvr.asmpthings.item;
 
 import net.maximlvr.asmpthings.AsmpThingsMod;
 import net.maximlvr.asmpthings.component.ModDataComponents;
+import net.maximlvr.asmpthings.item.custom.BlueCardItem;
 import net.maximlvr.asmpthings.item.custom.CrazyPhoneItem;
 import net.maximlvr.asmpthings.item.custom.ScratchTicketItem;
 import net.maximlvr.asmpthings.item.custom.WeatherStaff;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -33,6 +35,29 @@ public class ModItems {
 
     public static final DeferredItem<Item> CRAZY_PHONE = ITEMS.register("crazy_phone",
             () -> new CrazyPhoneItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> BLUE_CARD = ITEMS.register("blue_card",
+            () -> new BlueCardItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> RED_CARD = ITEMS.register("red_card",
+            () -> new BlueCardItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> GREEN_CARD = ITEMS.register("green_card",
+            () -> new BlueCardItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> BLACK_CARD = ITEMS.register("black_card",
+            () -> new BlueCardItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> GREY_CARD = ITEMS.register("grey_card",
+            () -> new BlueCardItem(new Item.Properties().stacksTo(1)));
+
+    public static boolean isBankCard(ItemStack stack) {
+        return stack.is(BLUE_CARD.get())
+                || stack.is(RED_CARD.get())
+                || stack.is(GREEN_CARD.get())
+                || stack.is(BLACK_CARD.get())
+                || stack.is(GREY_CARD.get());
+    }
 
     public static final DeferredItem<Item> GOAL_SMALL_TICKET = ITEMS.register("card_goal_small",
             () -> new ScratchTicketItem(

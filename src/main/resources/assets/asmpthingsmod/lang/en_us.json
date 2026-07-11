@@ -5,11 +5,19 @@
  "item.asmpthingsmod.weather_staff": "Meteo Baton",
  "item.asmpthingsmod.weather_tank": "Recharge meteo",
  "item.asmpthingsmod.crazy_phone": "Crazy Phone",
+ "item.asmpthingsmod.blue_card": "Carte bleue",
+ "item.asmpthingsmod.red_card": "Carte rouge",
+ "item.asmpthingsmod.green_card": "Carte verte",
+ "item.asmpthingsmod.black_card": "Carte noire",
+ "item.asmpthingsmod.grey_card": "Carte grise",
  "item.asmpthingsmod.golden_nut": "Golden Nut",
  "item.asmpthingsmod.card_goal_small": "Ticket goal",
 
 
  "block.asmpthingsmod.bismuth_block": "Bismuth Block",
+ "block.asmpthingsmod.bank": "Banque",
+ "block.asmpthingsmod.bank_down": "Banque basse",
+ "block.asmpthingsmod.card_reader": "Lecteur carte bleue",
 
 
  "creativetab.asmpthingsmod.asmp_item": "ASMP"

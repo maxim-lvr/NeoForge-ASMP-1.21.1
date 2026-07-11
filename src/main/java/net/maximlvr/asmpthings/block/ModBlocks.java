@@ -28,6 +28,27 @@ public class ModBlocks {
                     .sound(SoundType.DEEPSLATE))
     );
 
+    public static final DeferredBlock<Block> BANK = registerBlock(
+            "bank",
+            () -> new BankBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+                    .strength(4.0F)
+                    .sound(SoundType.METAL))
+    );
+
+    public static final DeferredBlock<Block> BANK_DOWN = registerBlock(
+            "bank_down",
+            () -> new BankBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+                    .strength(4.0F)
+                    .sound(SoundType.METAL))
+    );
+
+    public static final DeferredBlock<Block> CARD_READER = registerBlock(
+            "card_reader",
+            () -> new CardReaderBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+                    .strength(3.0F)
+                    .sound(SoundType.METAL))
+    );
+
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
         registerBlockItem(name, toReturn);

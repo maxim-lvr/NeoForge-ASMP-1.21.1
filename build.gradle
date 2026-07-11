@@ -142,7 +142,8 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
 
-    implementation "maven.modrinth:camera-mod:neoforge-1.21.1-1.0.21"
+    compileOnly "maven.modrinth:camera-mod:neoforge-1.21.1-1.0.21"
+    localRuntime "maven.modrinth:camera-mod:neoforge-1.21.1-1.0.21"
 
 }
 

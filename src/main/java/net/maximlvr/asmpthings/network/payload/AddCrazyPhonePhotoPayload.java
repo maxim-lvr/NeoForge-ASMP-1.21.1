@@ -7,7 +7,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-public record AddCrazyPhonePhotoPayload(boolean mainHand, String title, String texture) implements CustomPacketPayload {
+public record AddCrazyPhonePhotoPayload(boolean mainHand, String title, String texture, String photoType) implements CustomPacketPayload {
     public static final Type<AddCrazyPhonePhotoPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(AsmpThingsMod.MOD_ID, "add_crazy_phone_photo"));
 
@@ -19,6 +19,8 @@ public record AddCrazyPhonePhotoPayload(boolean mainHand, String title, String t
                     AddCrazyPhonePhotoPayload::title,
                     ByteBufCodecs.STRING_UTF8,
                     AddCrazyPhonePhotoPayload::texture,
+                    ByteBufCodecs.STRING_UTF8,
+                    AddCrazyPhonePhotoPayload::photoType,
                     AddCrazyPhonePhotoPayload::new
             );
 

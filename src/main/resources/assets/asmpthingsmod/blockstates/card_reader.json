@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "asmpthingsmod:block/card_reader"
+    },
+    "powered=true": {
+      "model": "asmpthingsmod:block/card_reader"
+    }
+  }
+}

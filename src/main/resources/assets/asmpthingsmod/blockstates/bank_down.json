@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "asmpthingsmod:block/bank_down",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "asmpthingsmod:block/bank_down",
+      "y": 270
+    },
+    "facing=south": {
+      "model": "asmpthingsmod:block/bank_down"
+    },
+    "facing=west": {
+      "model": "asmpthingsmod:block/bank_down",
+      "y": 90
+    }
+  }
+}

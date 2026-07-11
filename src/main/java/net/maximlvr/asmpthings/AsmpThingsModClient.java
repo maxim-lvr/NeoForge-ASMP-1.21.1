@@ -1,6 +1,8 @@
 package net.maximlvr.asmpthings;
 
 import net.maximlvr.asmpthings.client.render.CrawlerRenderer;
+import net.maximlvr.asmpthings.block.entity.ModBlockEntities;
+import net.maximlvr.asmpthings.client.render.BankBlockEntityRenderer;
 import net.maximlvr.asmpthings.entity.ModEntities;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -36,6 +38,7 @@ public class AsmpThingsModClient {
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.CRAWLER.get(), CrawlerRenderer::new);
         event.registerEntityRenderer(ModEntities.CRAWLER_HAND.get(), CrawlerHandRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.BANK.get(), BankBlockEntityRenderer::new);
     }
 
     @SubscribeEvent

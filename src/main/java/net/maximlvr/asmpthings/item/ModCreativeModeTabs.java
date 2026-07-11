@@ -28,7 +28,15 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.WEATHER_STAFF);
                         output.accept(ModItems.WEATHER_TANK);
                         output.accept(ModItems.CRAZY_PHONE);
+                        output.accept(ModItems.BLUE_CARD);
+                        output.accept(ModItems.RED_CARD);
+                        output.accept(ModItems.GREEN_CARD);
+                        output.accept(ModItems.BLACK_CARD);
+                        output.accept(ModItems.GREY_CARD);
                         output.accept(ModItems.GOAL_SMALL_TICKET);
+                        output.accept(ModBlocks.BANK);
+                        output.accept(ModBlocks.BANK_DOWN);
+                        output.accept(ModBlocks.CARD_READER);
 
                     }).build());
 
