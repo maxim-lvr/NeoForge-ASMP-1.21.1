@@ -16,7 +16,16 @@ public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(AsmpThingsMod.MOD_ID);
 
     public static final DeferredItem<Item> CORONA = ITEMS.register("corona",
-            () -> new Item(new Item.Properties()));
+            () -> new Item(new Item.Properties().food(ModFoods.BEER)));
+
+    public static final DeferredItem<Item> DESPERADOS = ITEMS.register("desperados",
+            () -> new Item(new Item.Properties().food(ModFoods.BEER)));
+
+    public static final DeferredItem<Item> HUIT_SIX = ITEMS.register("huit_six",
+            () -> new Item(new Item.Properties().food(ModFoods.BEER)));
+
+    public static final DeferredItem<Item> KRONENBOURG = ITEMS.register("kronenbourg",
+            () -> new Item(new Item.Properties().food(ModFoods.BEER)));
 
     public static final DeferredItem<Item> CRAZY_COIN = ITEMS.register("crazy_coin",
             () -> new Item(new Item.Properties()));
@@ -33,7 +42,13 @@ public class ModItems {
     public static final DeferredItem<Item> WEATHER_TANK = ITEMS.register("weather_tank",
             () -> new Item(new Item.Properties()));
 
-    public static final DeferredItem<Item> CRAZY_PHONE = ITEMS.register("crazy_phone",
+    public static final DeferredItem<Item> CRAZY_PHONE_14 = ITEMS.register("crazy_phone_14",
+            () -> new CrazyPhoneItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> CRAZY_PHONE_GOLDEN = ITEMS.register("crazy_phone_golden",
+            () -> new CrazyPhoneItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<Item> CRAZY_PHONE_BLUE_NIGHT = ITEMS.register("crazy_phone_blue_night",
             () -> new CrazyPhoneItem(new Item.Properties().stacksTo(1)));
 
     public static final DeferredItem<Item> BLUE_CARD = ITEMS.register("blue_card",
@@ -59,7 +74,13 @@ public class ModItems {
                 || stack.is(GREY_CARD.get());
     }
 
-    public static final DeferredItem<Item> GOAL_SMALL_TICKET = ITEMS.register("card_goal_small",
+    public static boolean isCrazyPhone(ItemStack stack) {
+        return stack.is(CRAZY_PHONE_14.get())
+                || stack.is(CRAZY_PHONE_GOLDEN.get())
+                || stack.is(CRAZY_PHONE_BLUE_NIGHT.get());
+    }
+
+    public static final DeferredItem<Item> GOAL_SMALL_TICKET = ITEMS.register("card_goal",
             () -> new ScratchTicketItem(
                     new Item.Properties()
                             .stacksTo(1)

@@ -1,23 +1,31 @@
 {
  "item.asmpthingsmod.corona": "Corona",
+ "item.asmpthingsmod.desperados": "Desperados",
+ "item.asmpthingsmod.huit_six": "8.6",
+ "item.asmpthingsmod.kronenbourg": "Kronenbourg",
  "item.asmpthingsmod.crazy_coin": "Crazy coin",
  "item.asmpthingsmod.cosmecoin": "Cosme-coin",
  "item.asmpthingsmod.weather_staff": "Meteo Baton",
  "item.asmpthingsmod.weather_tank": "Recharge meteo",
- "item.asmpthingsmod.crazy_phone": "Crazy Phone",
+ "item.asmpthingsmod.crazy_phone_14": "Crazy Phone 14",
+ "item.asmpthingsmod.crazy_phone_golden": "Crazy Phone Golden",
+ "item.asmpthingsmod.crazy_phone_blue_night": "Crazy Phone Blue Night",
  "item.asmpthingsmod.blue_card": "Carte bleue",
  "item.asmpthingsmod.red_card": "Carte rouge",
  "item.asmpthingsmod.green_card": "Carte verte",
  "item.asmpthingsmod.black_card": "Carte noire",
  "item.asmpthingsmod.grey_card": "Carte grise",
  "item.asmpthingsmod.golden_nut": "Golden Nut",
- "item.asmpthingsmod.card_goal_small": "Ticket goal",
+ "item.asmpthingsmod.card_goal": "Ticket goal",
 
 
  "block.asmpthingsmod.bismuth_block": "Bismuth Block",
  "block.asmpthingsmod.bank": "Banque",
  "block.asmpthingsmod.bank_down": "Banque basse",
  "block.asmpthingsmod.card_reader": "Lecteur carte bleue",
+ "block.asmpthingsmod.kelete_kalifa": "Kelete Kalifa",
+
+ "entity.asmpthingsmod.cube_boss": "Cube Boss",
 
 
  "creativetab.asmpthingsmod.asmp_item": "ASMP"

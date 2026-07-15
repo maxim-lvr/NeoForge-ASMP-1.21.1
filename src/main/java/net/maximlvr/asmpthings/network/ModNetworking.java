@@ -1,7 +1,11 @@
 package net.maximlvr.asmpthings.network;
 
+import de.maxhenkel.camera.ImageData;
 import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.maximlvr.asmpthings.bank.BankAccount;
+import net.maximlvr.asmpthings.bank.BankCitizen;
+import net.maximlvr.asmpthings.bank.BankMember;
+import net.maximlvr.asmpthings.bank.BankPlayerRegistry;
 import net.maximlvr.asmpthings.bank.BankSavedData;
 import net.maximlvr.asmpthings.bank.SavedIban;
 import net.maximlvr.asmpthings.block.custom.CardReaderBlock;
@@ -14,8 +18,13 @@ import net.maximlvr.asmpthings.network.payload.AddCrazyPhoneContactByNumberPaylo
 import net.maximlvr.asmpthings.network.payload.BankActionPayload;
 import net.maximlvr.asmpthings.network.payload.BankSyncPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneContactResultPayload;
+import net.maximlvr.asmpthings.network.payload.CrazyPhoneCameraAlbumActionPayload;
+import net.maximlvr.asmpthings.network.payload.CrazyPhoneCameraPhotoActionPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneMessageResultPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhonePhotoResultPayload;
+import net.maximlvr.asmpthings.network.payload.CrazyPhoneSetupResultPayload;
+import net.maximlvr.asmpthings.network.payload.CrazyPhoneSyncPayload;
+import net.maximlvr.asmpthings.network.payload.DisableCrazyPhoneCameraPayload;
 import net.maximlvr.asmpthings.network.payload.OpenBankPayload;
 import net.maximlvr.asmpthings.network.payload.OpenCardReaderConfigPayload;
 import net.maximlvr.asmpthings.network.payload.OpenCrazyPhonePayload;
@@ -44,6 +53,8 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.UUID;
 
 
@@ -134,7 +145,7 @@ public class ModNetworking {
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!stack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(stack)) {
                             return;
                         }
 
@@ -244,21 +255,40 @@ public class ModNetworking {
                 SetupCrazyPhonePayload.STREAM_CODEC,
                 (payload, context) -> {
                     context.enqueueWork(() -> {
-                        var player = context.player();
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
+
                         ItemStack stack = payload.mainHand()
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!stack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(stack)) {
+                            return;
+                        }
+
+                        String name = sanitize(payload.name(), 24);
+                        String number = sanitizePhoneNumber(payload.number());
+                        String password = sanitize(payload.password(), 16);
+
+                        if (name.isEmpty() || number.isEmpty() || password.isEmpty()) {
+                            sendSetupResult(player, false, "Champs obligatoires");
+                            return;
+                        }
+
+                        if (isPhoneNumberUsedByAnotherPhone(player, stack, number)) {
+                            sendSetupResult(player, false, "Numero deja utilise");
                             return;
                         }
 
                         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-                        tag.putString("name", sanitize(payload.name(), 24));
-                        tag.putString("number", sanitize(payload.number(), 12));
-                        tag.putString("password", sanitize(payload.password(), 16));
+                        tag.putString("name", name);
+                        tag.putString("number", number);
+                        tag.putString("password", password);
                         tag.putBoolean("locked", false);
                         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+                        syncPhone(player, payload.mainHand(), stack);
+                        sendSetupResult(player, true, "");
                     });
                 }
         );
@@ -276,15 +306,23 @@ public class ModNetworking {
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!stack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(stack)) {
                             return;
                         }
 
                         String name = sanitize(payload.name(), 24);
-                        String number = sanitize(payload.number(), 12);
+                        String number = sanitizePhoneNumber(payload.number());
 
                         if (name.isEmpty() || number.isEmpty()) {
                             sendContactResult(player, false, "", "", "", "Numero introuvable");
+                            return;
+                        }
+
+                        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+                        String ownNumber = sanitizePhoneNumber(tag.getString("number"));
+
+                        if (number.equals(ownNumber)) {
+                            sendContactResult(player, false, "", "", number, "Ce numero nous appartient");
                             return;
                         }
 
@@ -295,7 +333,6 @@ public class ModNetworking {
                             return;
                         }
 
-                        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
                         ListTag contacts = tag.getList("contacts", 10);
 
                         for (int i = 0; i < contacts.size(); i++) {
@@ -328,7 +365,7 @@ public class ModNetworking {
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!stack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(stack)) {
                             return;
                         }
 
@@ -349,7 +386,7 @@ public class ModNetworking {
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!stack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(stack)) {
                             return;
                         }
 
@@ -388,11 +425,198 @@ public class ModNetworking {
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!stack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(stack)) {
                             return;
                         }
 
                         CrazyPhoneCameraHelper.takeOrStartPhoto(player.level(), player, stack);
+                    });
+                }
+        );
+
+        registrar.playToServer(
+                DisableCrazyPhoneCameraPayload.TYPE,
+                DisableCrazyPhoneCameraPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
+
+                        for (InteractionHand hand : InteractionHand.values()) {
+                            ItemStack stack = player.getItemInHand(hand);
+
+                            if (!ModItems.isCrazyPhone(stack) || !CrazyPhoneCameraHelper.isActive(stack)) {
+                                continue;
+                            }
+
+                            de.maxhenkel.camera.Main.CAMERA.get().setActive(stack, false);
+                        }
+                    });
+                }
+        );
+
+        registrar.playToServer(
+                CrazyPhoneCameraPhotoActionPayload.TYPE,
+                CrazyPhoneCameraPhotoActionPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
+
+                        ItemStack senderStack = payload.mainHand()
+                                ? player.getMainHandItem()
+                                : player.getOffhandItem();
+
+                        if (!ModItems.isCrazyPhone(senderStack)) {
+                            return;
+                        }
+
+                        int albumIndex = payload.albumIndex();
+                        List<CameraPhotoSelection> imageSelections = parseSelectedPhotoSelections(payload.imageIndexes(), payload.albumIndex(), 5);
+                        String action = sanitize(payload.action(), 16);
+
+                        if (imageSelections.isEmpty()) {
+                            sendPhotoResult(player, false, "Photo introuvable");
+                            return;
+                        }
+
+                        if ("take".equals(action)) {
+                            int taken = 0;
+                            imageSelections.sort(Comparator
+                                    .comparingInt(CameraPhotoSelection::albumIndex)
+                                    .thenComparingInt(CameraPhotoSelection::imageIndex)
+                                    .reversed());
+
+                            for (CameraPhotoSelection selection : imageSelections) {
+                                ItemStack image = CrazyPhoneCameraHelper.removeCameraImageAt(player, senderStack, selection.albumIndex(), selection.imageIndex());
+
+                                if (image.isEmpty()) {
+                                    continue;
+                                }
+
+                                CrazyPhoneCameraHelper.giveImageFallback(player, image);
+                                taken++;
+                            }
+
+                            if (taken <= 0) {
+                                sendPhotoResult(player, false, "Photo introuvable");
+                                return;
+                            }
+
+                            syncPhone(player, payload.mainHand(), senderStack);
+                            sendPhotoResult(player, true, taken == 1 ? "Photo prise" : taken + " photos prises");
+                            return;
+                        }
+
+                        if ("delete".equals(action)) {
+                            int deleted = 0;
+                            imageSelections.sort(Comparator
+                                    .comparingInt(CameraPhotoSelection::albumIndex)
+                                    .thenComparingInt(CameraPhotoSelection::imageIndex)
+                                    .reversed());
+
+                            for (CameraPhotoSelection selection : imageSelections) {
+                                ItemStack image = CrazyPhoneCameraHelper.removeCameraImageAt(player, senderStack, selection.albumIndex(), selection.imageIndex());
+
+                                if (!image.isEmpty()) {
+                                    deleted++;
+                                }
+                            }
+
+                            syncPhone(player, payload.mainHand(), senderStack);
+                            sendPhotoResult(player, deleted > 0, deleted <= 0 ? "Photo introuvable" : deleted == 1 ? "Photo effacee" : deleted + " photos effacees");
+                            return;
+                        }
+
+                        if ("send".equals(action)) {
+                            String contactNumber = sanitizePhoneNumber(payload.contactNumber());
+
+                            if (contactNumber.isEmpty()) {
+                                sendPhotoResult(player, false, "Numero introuvable");
+                                return;
+                            }
+
+                            int sent = 0;
+                            CompoundTag senderTag = senderStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+                            String senderNumber = sanitizePhoneNumber(senderTag.getString("number"));
+
+                            if (senderNumber.isEmpty()) {
+                                sendPhotoResult(player, false, "Telephone non configure");
+                                return;
+                            }
+
+                            PhoneStackRef targetPhone = findPhoneRefByNumber(player, contactNumber);
+
+                            if (targetPhone == null) {
+                                sendPhotoResult(player, false, "Numero introuvable");
+                                return;
+                            }
+
+                            for (CameraPhotoSelection selection : imageSelections) {
+                                ItemStack image = CrazyPhoneCameraHelper.getCameraImageAt(player.level().registryAccess(), senderStack, selection.albumIndex(), selection.imageIndex());
+
+                                if (image.isEmpty()) {
+                                    continue;
+                                }
+
+                                long time = player.serverLevel().getGameTime();
+                                addPhonePhotoMessage(player.level().registryAccess(), senderStack, contactNumber, senderNumber, contactNumber, image, true, time);
+                                addPhonePhotoMessage(player.level().registryAccess(), targetPhone.stack(), senderNumber, senderNumber, contactNumber, image, false, time);
+                                sent++;
+                            }
+
+                            if (sent <= 0) {
+                                sendPhotoResult(player, false, "Photo introuvable");
+                                return;
+                            }
+
+                            syncPhone(player, payload.mainHand(), senderStack);
+                            syncHeldPhone(targetPhone);
+                            sendPhotoResult(player, true, sent == 1 ? "Photo envoyee" : sent + " photos envoyees");
+                        }
+                    });
+                }
+        );
+
+        registrar.playToServer(
+                CrazyPhoneCameraAlbumActionPayload.TYPE,
+                CrazyPhoneCameraAlbumActionPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
+
+                        ItemStack stack = payload.mainHand()
+                                ? player.getMainHandItem()
+                                : player.getOffhandItem();
+
+                        if (!ModItems.isCrazyPhone(stack)) {
+                            return;
+                        }
+
+                        String action = sanitize(payload.action(), 16);
+
+                        if ("create".equals(action)) {
+                            CrazyPhoneCameraHelper.createAlbum(player, stack);
+                        } else if ("rename".equals(action)) {
+                            CrazyPhoneCameraHelper.renameAlbum(player, stack, payload.albumIndex(), sanitize(payload.name(), 24));
+                        } else if ("upload_target".equals(action)) {
+                            CrazyPhoneCameraHelper.setUploadTarget(player, payload.albumIndex(), payload.uploadCount());
+                        } else if ("assign".equals(action)) {
+                            List<CameraPhotoSelection> selections = parseSelectedPhotoSelections(payload.name(), -1, 5);
+
+                            for (CameraPhotoSelection selection : selections) {
+                                ItemStack image = CrazyPhoneCameraHelper.getCameraImageAt(player.level().registryAccess(), stack, selection.albumIndex(), selection.imageIndex());
+                                ImageData data = ImageData.fromStack(image);
+
+                                if (data != null) {
+                                    CrazyPhoneCameraHelper.assignImageToGroup(player, stack, data.getId().toString(), payload.albumIndex());
+                                }
+                            }
+                        }
                     });
                 }
         );
@@ -410,11 +634,11 @@ public class ModNetworking {
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!senderStack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(senderStack)) {
                             return;
                         }
 
-                        String contactNumber = sanitize(payload.contactNumber(), 12);
+                        String contactNumber = sanitizePhoneNumber(payload.contactNumber());
                         String title = sanitize(payload.title(), 32);
                         String texture = sanitize(payload.texture(), 128);
                         String type = sanitize(payload.photoType(), 16);
@@ -424,23 +648,26 @@ public class ModNetworking {
                             return;
                         }
 
-                        ItemStack targetStack = findPhoneStackByNumber(player, contactNumber);
+                        PhoneStackRef targetPhone = findPhoneRefByNumber(player, contactNumber);
 
-                        if (targetStack == null) {
+                        if (targetPhone == null) {
                             sendPhotoResult(player, false, "Numero introuvable");
                             return;
                         }
 
-                        CompoundTag tag = targetStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-                        ListTag photos = tag.getList("photos", 10);
+                        CompoundTag senderTag = senderStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+                        String senderNumber = sanitizePhoneNumber(senderTag.getString("number"));
 
-                        CompoundTag photo = new CompoundTag();
-                        photo.putString("title", title);
-                        photo.putString("texture", texture);
-                        photo.putString("type", type.isEmpty() ? "recu" : type);
-                        photos.add(photo);
-                        tag.put("photos", photos);
-                        targetStack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+                        if (senderNumber.isEmpty()) {
+                            sendPhotoResult(player, false, "Telephone non configure");
+                            return;
+                        }
+
+                        long time = player.serverLevel().getGameTime();
+                        addPhoneUploadedPhotoMessage(senderStack, contactNumber, senderNumber, contactNumber, title, texture, type, true, time);
+                        addPhoneUploadedPhotoMessage(targetPhone.stack(), senderNumber, senderNumber, contactNumber, title, texture, type, false, time);
+                        syncPhone(player, payload.mainHand(), senderStack);
+                        syncHeldPhone(targetPhone);
 
                         sendPhotoResult(player, true, "Photo envoyee");
                     });
@@ -460,12 +687,12 @@ public class ModNetworking {
                                 ? player.getMainHandItem()
                                 : player.getOffhandItem();
 
-                        if (!senderStack.is(ModItems.CRAZY_PHONE.get())) {
+                        if (!ModItems.isCrazyPhone(senderStack)) {
                             return;
                         }
 
-                        String contactNumber = sanitize(payload.contactNumber(), 12);
-                        String message = sanitize(payload.message(), 160);
+                        String contactNumber = sanitizePhoneNumber(payload.contactNumber());
+                        String message = sanitize(payload.message(), 800);
 
                         if (contactNumber.isEmpty() || message.isEmpty()) {
                             sendMessageResult(player, false, contactNumber, "", "Message vide");
@@ -473,24 +700,37 @@ public class ModNetworking {
                         }
 
                         CompoundTag senderTag = senderStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-                        String senderNumber = sanitize(senderTag.getString("number"), 12);
+                        String senderNumber = sanitizePhoneNumber(senderTag.getString("number"));
 
                         if (senderNumber.isEmpty()) {
                             sendMessageResult(player, false, contactNumber, "", "Telephone non configure");
                             return;
                         }
 
-                        ItemStack targetStack = findPhoneStackByNumber(player, contactNumber);
+                        PhoneStackRef targetPhone = findPhoneRefByNumber(player, contactNumber);
 
-                        if (targetStack == null) {
+                        if (targetPhone == null) {
                             sendMessageResult(player, false, contactNumber, "", "Numero introuvable");
                             return;
                         }
 
                         long time = player.serverLevel().getGameTime();
                         addPhoneMessage(senderStack, contactNumber, senderNumber, contactNumber, message, true, time);
-                        addPhoneMessage(targetStack, senderNumber, senderNumber, contactNumber, message, false, time);
+                        addPhoneMessage(targetPhone.stack(), senderNumber, senderNumber, contactNumber, message, false, time);
+                        syncHeldPhone(targetPhone);
                         sendMessageResult(player, true, contactNumber, message, "Message envoye");
+                    });
+                }
+        );
+
+        registrar.playToClient(
+                CrazyPhoneSetupResultPayload.TYPE,
+                CrazyPhoneSetupResultPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (net.minecraft.client.Minecraft.getInstance().screen instanceof net.maximlvr.asmpthings.client.screen.CrazyPhoneScreen screen) {
+                            screen.handleSetupResult(payload);
+                        }
                     });
                 }
         );
@@ -531,6 +771,17 @@ public class ModNetworking {
                 }
         );
 
+        registrar.playToClient(
+                CrazyPhoneSyncPayload.TYPE,
+                CrazyPhoneSyncPayload.STREAM_CODEC,
+                (payload, context) -> {
+                    context.enqueueWork(() -> {
+                        if (net.minecraft.client.Minecraft.getInstance().screen instanceof net.maximlvr.asmpthings.client.screen.CrazyPhoneScreen screen) {
+                            screen.handleSync(payload);
+                        }
+                    });
+                }
+        );
 
     }
 
@@ -554,6 +805,55 @@ public class ModNetworking {
         return sanitized.substring(0, maxLength);
     }
 
+    private static String sanitizePhoneNumber(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        return trimmed.matches("\\d{1,6}") ? trimmed : "";
+    }
+
+    private static List<CameraPhotoSelection> parseSelectedPhotoSelections(String value, int defaultAlbumIndex, int maxCount) {
+        List<CameraPhotoSelection> indexes = new ArrayList<>();
+
+        for (String part : sanitize(value, 128).split(",")) {
+            if (indexes.size() >= maxCount) {
+                break;
+            }
+
+            try {
+                String trimmed = part.trim();
+                int albumIndex = defaultAlbumIndex;
+                int imageIndex;
+
+                if (trimmed.contains(":")) {
+                    String[] parts = trimmed.split(":", 2);
+                    albumIndex = Integer.parseInt(parts[0].trim());
+                    imageIndex = Integer.parseInt(parts[1].trim());
+                } else {
+                    imageIndex = Integer.parseInt(trimmed);
+                }
+
+                CameraPhotoSelection selection = new CameraPhotoSelection(albumIndex, imageIndex);
+
+                if (albumIndex >= 0 && imageIndex >= 0 && !indexes.contains(selection)) {
+                    indexes.add(selection);
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        return indexes;
+    }
+
+    private static void syncPhone(ServerPlayer player, boolean mainHand, ItemStack stack) {
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, new CrazyPhoneSyncPayload(mainHand, tag));
+    }
+
+    private static void syncHeldPhone(PhoneStackRef phone) {
+        if (phone.held()) {
+            syncPhone(phone.player(), phone.mainHand(), phone.stack());
+        }
+    }
+
     private static void handleBankAction(ServerPlayer player, BankActionPayload payload) {
         BankSavedData bank = BankSavedData.get(player.server);
         String selectedId = sanitizeDigits(payload.accountId(), 4);
@@ -565,19 +865,22 @@ public class ModNetworking {
 
                 if (name.isEmpty()) {
                     message = "Nom de compte requis.";
-                } else if (bank.getAccounts(player.getUUID()).size() >= MAX_BANK_ACCOUNTS) {
+                } else if (bank.getOwnedAccounts(player.getUUID()).size() >= MAX_BANK_ACCOUNTS) {
                     message = "Maximum 5 comptes.";
                 } else {
                     BankAccount account = bank.createAccount(player.getUUID(), name, player.getRandom());
                     selectedId = account.id();
-                    player.displayClientMessage(Component.literal("Compte " + account.id() + " cree."), false);
+                    message = "Compte " + account.id() + " cree.";
                 }
             }
             case "deposit" -> {
                 int amount = Math.max(0, payload.amount());
+                BankAccount account = bank.getAccount(selectedId);
 
-                if (!ownsAccount(player, bank, selectedId)) {
+                if (!canUseAccount(player, bank, selectedId)) {
                     message = "Selectionne un de tes comptes.";
+                } else if (account != null && account.adminAccount()) {
+                    message = "Ce compte ne peut pas deposer.";
                 } else if (amount <= 0 || countCrazyCoins(player) < amount) {
                     message = "Pas assez de crazycoins sur toi.";
                 } else {
@@ -588,9 +891,12 @@ public class ModNetworking {
             }
             case "withdraw" -> {
                 int amount = Math.max(0, payload.amount());
+                BankAccount account = bank.getAccount(selectedId);
 
-                if (!ownsAccount(player, bank, selectedId)) {
+                if (!canUseAccount(player, bank, selectedId)) {
                     message = "Selectionne un de tes comptes.";
+                } else if (account != null && account.adminAccount()) {
+                    message = "Ce compte ne peut pas retirer.";
                 } else if (!bank.withdraw(selectedId, amount)) {
                     message = "Solde insuffisant.";
                 } else {
@@ -602,7 +908,7 @@ public class ModNetworking {
                 String targetId = sanitizeDigits(payload.targetAccountId(), 4);
                 int amount = Math.max(0, payload.amount());
 
-                if (!ownsAccount(player, bank, selectedId)) {
+                if (!canUseAccount(player, bank, selectedId)) {
                     message = "Selectionne un de tes comptes.";
                 } else if (!bank.transfer(selectedId, targetId, amount)) {
                     message = "Transfert impossible.";
@@ -611,8 +917,12 @@ public class ModNetworking {
                 }
             }
             case "card" -> {
-                if (!ownsAccount(player, bank, selectedId)) {
+                BankAccount account = bank.getAccount(selectedId);
+
+                if (!canUseAccount(player, bank, selectedId)) {
                     message = "Selectionne un de tes comptes.";
+                } else if (account != null && account.adminAccount()) {
+                    message = "Ce compte ne peut pas creer de carte.";
                 } else {
                     String pin = sanitizeDigits(payload.pin(), 6);
                     String color = sanitize(payload.targetAccountId(), 16);
@@ -641,10 +951,59 @@ public class ModNetworking {
                     message = "IBAN sauvegarde.";
                 }
             }
+            case "add_member" -> {
+                String targetName = sanitize(payload.targetAccountId(), 32);
+                ServerPlayer targetPlayer = targetName.isEmpty() ? null : player.server.getPlayerList().getPlayerByName(targetName);
+
+                if (!ownsAccount(player, bank, selectedId)) {
+                    message = "Seul le createur peut gerer ce compte.";
+                } else if (targetPlayer == null) {
+                    message = "Joueur introuvable ou hors ligne.";
+                } else if (bank.addMember(selectedId, player.getUUID(), targetPlayer.getUUID(), targetPlayer.getGameProfile().getName())) {
+                    message = "Personne ajoutee.";
+                } else {
+                    message = "Ajout impossible.";
+                }
+            }
+            case "remove_member" -> {
+                UUID memberId = parseUuid(payload.targetAccountId());
+
+                if (!ownsAccount(player, bank, selectedId)) {
+                    message = "Seul le createur peut gerer ce compte.";
+                } else if (memberId == null || !bank.removeMember(selectedId, player.getUUID(), memberId)) {
+                    message = "Retrait impossible.";
+                } else {
+                    message = "Personne retiree.";
+                }
+            }
+            case "save_citizen" -> {
+                String targetId = sanitizeDigits(payload.targetAccountId(), 4);
+                UUID citizenId = parseUuid(payload.text());
+                int salary = Math.max(0, payload.amount());
+                BankPlayerRegistry.Entry playerEntry = citizenId == null ? null : BankPlayerRegistry.get(player.server).get(citizenId);
+
+                if (!canManageAdminAccount(player, bank, selectedId)) {
+                    message = "Compte admin requis.";
+                } else if (playerEntry == null) {
+                    message = "Joueur introuvable.";
+                } else if (!targetId.isEmpty() && targetId.length() != 4) {
+                    message = "IBAN invalide.";
+                } else if (!targetId.isEmpty() && bank.getAccount(targetId) == null) {
+                    message = "IBAN inexistant.";
+                } else if (bank.saveCitizen(selectedId, citizenId, playerEntry.name(), targetId, salary)) {
+                    message = "Citoyen sauvegarde.";
+                } else {
+                    message = "Citoyen impossible a sauvegarder.";
+                }
+            }
             default -> message = "";
         }
 
-        sendBankSync(player, selectedId, message);
+        if (!message.isEmpty()) {
+            player.displayClientMessage(Component.literal(message), false);
+        }
+
+        sendBankSync(player, selectedId, "");
     }
 
     private static void handleCardReaderPayment(ServerPlayer player, SubmitCardReaderPinPayload payload) {
@@ -694,8 +1053,20 @@ public class ModNetworking {
         return account != null && account.owner().equals(player.getUUID());
     }
 
+    private static boolean canUseAccount(ServerPlayer player, BankSavedData bank, String accountId) {
+        BankAccount account = bank.getAccount(accountId);
+        return account != null && account.hasAccess(player.getUUID());
+    }
+
+    private static boolean canManageAdminAccount(ServerPlayer player, BankSavedData bank, String accountId) {
+        BankAccount account = bank.getAccount(accountId);
+        return account != null && account.adminAccount() && account.hasAccess(player.getUUID());
+    }
+
     public static void sendBankSync(ServerPlayer player, String selectedAccountId, String message) {
         BankSavedData bank = BankSavedData.get(player.server);
+        BankPlayerRegistry playerRegistry = BankPlayerRegistry.get(player.server);
+        playerRegistry.syncPlayerBankInfo(player, bank);
         List<BankAccount> accounts = bank.getAccounts(player.getUUID());
         StringBuilder builder = new StringBuilder();
         StringBuilder savedIbanBuilder = new StringBuilder();
@@ -707,13 +1078,34 @@ public class ModNetworking {
 
             builder.append(account.id())
                     .append('|')
-                    .append(account.name().replace("|", " "))
+                    .append(syncField(account.name()))
                     .append('|')
-                    .append(account.balance());
+                    .append(account.balance())
+                    .append('|')
+                    .append(account.owner().equals(player.getUUID()) ? "1" : "0")
+                    .append('|')
+                    .append(account.members().isEmpty() ? "0" : "1")
+                    .append('|')
+                    .append(syncMembers(account.members()))
+                    .append('|')
+                    .append(account.adminAccount() ? "1" : "0")
+                    .append('|')
+                    .append(syncCitizens(account.citizens(), playerRegistry.displayedPlayers()));
         }
 
-        if ((selectedAccountId == null || selectedAccountId.isEmpty()) && !accounts.isEmpty()) {
+        boolean selectedAccountVisible = false;
+
+        for (BankAccount account : accounts) {
+            if (account.id().equals(selectedAccountId)) {
+                selectedAccountVisible = true;
+                break;
+            }
+        }
+
+        if (!accounts.isEmpty() && (selectedAccountId == null || !selectedAccountVisible)) {
             selectedAccountId = accounts.getFirst().id();
+        } else if (accounts.isEmpty()) {
+            selectedAccountId = "";
         }
 
         for (SavedIban savedIban : bank.getSavedIbans(player.getUUID())) {
@@ -796,6 +1188,66 @@ public class ModNetworking {
         };
     }
 
+    private static UUID parseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
+    }
+
+    private static String syncMembers(List<BankMember> members) {
+        StringBuilder builder = new StringBuilder();
+
+        for (BankMember member : members) {
+            if (!builder.isEmpty()) {
+                builder.append(';');
+            }
+
+            builder.append(member.id())
+                    .append(',')
+                    .append(syncField(member.name()));
+        }
+
+        return builder.toString();
+    }
+
+    private static String syncCitizens(List<BankCitizen> citizens, List<BankPlayerRegistry.Entry> displayedPlayers) {
+        StringBuilder builder = new StringBuilder();
+
+        for (BankPlayerRegistry.Entry player : displayedPlayers) {
+            if (!builder.isEmpty()) {
+                builder.append(';');
+            }
+
+            BankCitizen citizen = null;
+
+            for (BankCitizen candidate : citizens) {
+                if (candidate.playerId().equals(player.id())) {
+                    citizen = candidate;
+                    break;
+                }
+            }
+
+            builder.append(player.id())
+                    .append(',')
+                    .append(syncField(player.name()))
+                    .append(',')
+                    .append(citizen == null ? "" : citizen.iban())
+                    .append(',')
+                    .append(citizen == null ? 0 : citizen.salary());
+        }
+
+        return builder.toString();
+    }
+
+    private static String syncField(String value) {
+        return value.replace('|', ' ')
+                .replace(';', ' ')
+                .replace(',', ' ')
+                .replace('\n', ' ');
+    }
+
     private static void addPhoneMessage(ItemStack stack, String conversationNumber, String fromNumber, String toNumber, String text, boolean outgoing, long time) {
         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         ListTag conversations = tag.getList("conversations", 10);
@@ -830,6 +1282,89 @@ public class ModNetworking {
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 
+    private static void addPhonePhotoMessage(net.minecraft.core.HolderLookup.Provider registries, ItemStack stack, String conversationNumber, String fromNumber, String toNumber, ItemStack image, boolean outgoing, long time) {
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        ListTag conversations = tag.getList("conversations", 10);
+        CompoundTag conversation = getOrCreateConversation(conversations, conversationNumber);
+        ListTag messages = conversation.getList("messages", 10);
+        CompoundTag message = createBaseMessage(fromNumber, toNumber, "[Photo]", outgoing, time);
+        message.putString("kind", "camera_photo");
+        message.put("image", image.save(registries));
+        messages.add(message);
+        conversation.put("messages", messages);
+        tag.put("conversations", conversations);
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    private static void addPhoneUploadedPhotoMessage(ItemStack stack, String conversationNumber, String fromNumber, String toNumber, String title, String texture, String type, boolean outgoing, long time) {
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        ListTag conversations = tag.getList("conversations", 10);
+        CompoundTag conversation = getOrCreateConversation(conversations, conversationNumber);
+        ListTag messages = conversation.getList("messages", 10);
+        CompoundTag message = createBaseMessage(fromNumber, toNumber, "[Photo]", outgoing, time);
+        message.putString("kind", "uploaded_photo");
+        message.putString("photoTitle", title);
+        message.putString("photoTexture", texture);
+        message.putString("photoType", type.isEmpty() ? "recu" : type);
+        messages.add(message);
+        conversation.put("messages", messages);
+        tag.put("conversations", conversations);
+        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+    }
+
+    private static CompoundTag getOrCreateConversation(ListTag conversations, String conversationNumber) {
+        for (int i = 0; i < conversations.size(); i++) {
+            CompoundTag current = conversations.getCompound(i);
+
+            if (conversationNumber.equals(current.getString("number"))) {
+                return current;
+            }
+        }
+
+        CompoundTag conversation = new CompoundTag();
+        conversation.putString("number", conversationNumber);
+        conversation.put("messages", new ListTag());
+        conversations.add(conversation);
+        return conversation;
+    }
+
+    private static CompoundTag createBaseMessage(String fromNumber, String toNumber, String text, boolean outgoing, long time) {
+        CompoundTag message = new CompoundTag();
+        message.putString("from", fromNumber);
+        message.putString("to", toNumber);
+        message.putString("text", text);
+        message.putBoolean("outgoing", outgoing);
+        message.putLong("time", time);
+        return message;
+    }
+
+    private static boolean isPhoneNumberUsedByAnotherPhone(ServerPlayer requester, ItemStack currentStack, String number) {
+        for (ServerPlayer player : requester.server.getPlayerList().getPlayers()) {
+            if (isPhoneNumberOnAnotherStack(currentStack, player.getMainHandItem(), number)
+                    || isPhoneNumberOnAnotherStack(currentStack, player.getOffhandItem(), number)
+                    || isPhoneNumberInStacks(currentStack, player.getInventory().items, number)
+                    || isPhoneNumberInStacks(currentStack, player.getInventory().armor, number)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isPhoneNumberInStacks(ItemStack currentStack, Iterable<ItemStack> stacks, String number) {
+        for (ItemStack stack : stacks) {
+            if (isPhoneNumberOnAnotherStack(currentStack, stack, number)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isPhoneNumberOnAnotherStack(ItemStack currentStack, ItemStack stack, String number) {
+        return stack != currentStack && isPhoneNumber(stack, number);
+    }
+
     private static PhoneContact findPhoneByNumber(ServerPlayer requester, String number) {
         for (ServerPlayer player : requester.server.getPlayerList().getPlayers()) {
             PhoneContact contact = findPhoneInInventory(player, number);
@@ -848,6 +1383,18 @@ public class ModNetworking {
 
             if (!stack.isEmpty()) {
                 return stack;
+            }
+        }
+
+        return null;
+    }
+
+    private static PhoneStackRef findPhoneRefByNumber(ServerPlayer requester, String number) {
+        for (ServerPlayer player : requester.server.getPlayerList().getPlayers()) {
+            PhoneStackRef ref = findPhoneRefInInventory(player, number);
+
+            if (ref != null) {
+                return ref;
             }
         }
 
@@ -890,9 +1437,37 @@ public class ModNetworking {
         return findPhoneStackInStacks(number, inventory.armor);
     }
 
+    private static PhoneStackRef findPhoneRefInInventory(ServerPlayer player, String number) {
+        ItemStack mainHand = player.getMainHandItem();
+
+        if (isPhoneNumber(mainHand, number)) {
+            return new PhoneStackRef(player, mainHand, true, true);
+        }
+
+        ItemStack offhand = player.getOffhandItem();
+
+        if (isPhoneNumber(offhand, number)) {
+            return new PhoneStackRef(player, offhand, false, true);
+        }
+
+        ItemStack inventoryStack = findPhoneStackInStacks(number, player.getInventory().items);
+
+        if (!inventoryStack.isEmpty()) {
+            return new PhoneStackRef(player, inventoryStack, false, false);
+        }
+
+        inventoryStack = findPhoneStackInStacks(number, player.getInventory().armor);
+
+        if (!inventoryStack.isEmpty()) {
+            return new PhoneStackRef(player, inventoryStack, false, false);
+        }
+
+        return null;
+    }
+
     private static PhoneContact findPhoneInStacks(ServerPlayer player, String number, Iterable<ItemStack> stacks) {
         for (ItemStack stack : stacks) {
-            if (!stack.is(ModItems.CRAZY_PHONE.get())) {
+            if (!ModItems.isCrazyPhone(stack)) {
                 continue;
             }
 
@@ -916,13 +1491,7 @@ public class ModNetworking {
 
     private static ItemStack findPhoneStackInStacks(String number, Iterable<ItemStack> stacks) {
         for (ItemStack stack : stacks) {
-            if (!stack.is(ModItems.CRAZY_PHONE.get())) {
-                continue;
-            }
-
-            CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-
-            if (number.equals(tag.getString("number"))) {
+            if (isPhoneNumber(stack, number)) {
                 return stack;
             }
         }
@@ -930,10 +1499,26 @@ public class ModNetworking {
         return ItemStack.EMPTY;
     }
 
+    private static boolean isPhoneNumber(ItemStack stack, String number) {
+        if (!ModItems.isCrazyPhone(stack)) {
+            return false;
+        }
+
+        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        return number.equals(tag.getString("number"));
+    }
+
     private static void sendContactResult(ServerPlayer player, boolean success, String uuid, String name, String number, String message) {
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
                 player,
                 new CrazyPhoneContactResultPayload(success, uuid, name, number, message)
+        );
+    }
+
+    private static void sendSetupResult(ServerPlayer player, boolean success, String message) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
+                player,
+                new CrazyPhoneSetupResultPayload(success, message)
         );
     }
 
@@ -953,5 +1538,11 @@ public class ModNetworking {
 
 
     private record PhoneContact(String uuid, String name, String number) {
+    }
+
+    private record PhoneStackRef(ServerPlayer player, ItemStack stack, boolean mainHand, boolean held) {
+    }
+
+    private record CameraPhotoSelection(int albumIndex, int imageIndex) {
     }
 }

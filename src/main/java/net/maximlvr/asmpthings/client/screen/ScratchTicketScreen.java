@@ -7,44 +7,46 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.maximlvr.asmpthings.component.ModDataComponents;
+import net.maximlvr.asmpthings.item.custom.ScratchTicketPrize;
 import net.maximlvr.asmpthings.network.payload.ScratchTicketScratchPayload;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public class ScratchTicketScreen extends Screen {
     private final ItemStack stack;
 
-    private static final ResourceLocation CARD_TEXTURE_0 =
-            ResourceLocation.fromNamespaceAndPath(
-                    AsmpThingsMod.MOD_ID,
-                    "textures/gui/scratch_ticket/card_goal_small_0.png"
-            );
-
-    private static final ResourceLocation CARD_TEXTURE_1 =
-            ResourceLocation.fromNamespaceAndPath(
-                    AsmpThingsMod.MOD_ID,
-                    "textures/gui/scratch_ticket/card_goal_small_1.png"
-            );
-
-    private static final ResourceLocation CARD_TEXTURE_5 =
-            ResourceLocation.fromNamespaceAndPath(
-                    AsmpThingsMod.MOD_ID,
-                    "textures/gui/scratch_ticket/card_goal_small_5.png"
-            );
-
-    private static final ResourceLocation CARD_TEXTURE_10 =
-            ResourceLocation.fromNamespaceAndPath(
-                    AsmpThingsMod.MOD_ID,
-                    "textures/gui/scratch_ticket/card_goal_small_10.png"
-            );
+    private static final ResourceLocation CARD_TEXTURE_LOST = cardTexture("card_goal_perdu.png");
+    private static final ResourceLocation CARD_TEXTURE_CHIENGUE = cardTexture("card_goal_chiengue.png");
+    private static final ResourceLocation CARD_TEXTURE_KOMBUCIAO = cardTexture("card_goal_kombuciao.png");
+    private static final ResourceLocation CARD_TEXTURE_2_COINS = cardTexture("card_goal_2coins.png");
+    private static final ResourceLocation CARD_TEXTURE_BOUTEILLE = cardTexture("card_goal_bouteille.png");
+    private static final ResourceLocation CARD_TEXTURE_5_COINS = cardTexture("card_goal_5coins.png");
+    private static final ResourceLocation CARD_TEXTURE_DIAMOND = cardTexture("card_goal_diamant.png");
+    private static final ResourceLocation CARD_TEXTURE_IGNITIUM = cardTexture("card_goal_ignitium.png");
+    private static final ResourceLocation CARD_TEXTURE_DISC = cardTexture("card_goal_disque.png");
+    private static final ResourceLocation CARD_TEXTURE_BOUEE = cardTexture("card_goal_bouee.png");
+    private static final ResourceLocation CARD_TEXTURE_CARDS = cardTexture("card_goal_base_set.png");
+    private static final ResourceLocation CARD_TEXTURE_PELUCHE = cardTexture("card_goal_peluche.png");
+    private static final ResourceLocation CARD_TEXTURE_10_COINS = cardTexture("card_goal_10coins.png");
+    private static final ResourceLocation CARD_TEXTURE_64_COINS = cardTexture("card_goal_64coins.png");
 
     private ResourceLocation getCardTexture() {
         int prize = stack.getOrDefault(ModDataComponents.SCRATCH_PRIZE, 0);
 
         return switch (prize) {
-            case 1 -> CARD_TEXTURE_1;
-            case 5 -> CARD_TEXTURE_5;
-            case 10 -> CARD_TEXTURE_10;
-            default -> CARD_TEXTURE_0;
+            case ScratchTicketPrize.CHIENGUE -> CARD_TEXTURE_CHIENGUE;
+            case ScratchTicketPrize.KOMBUCIAO -> CARD_TEXTURE_KOMBUCIAO;
+            case ScratchTicketPrize.TWO_COINS -> CARD_TEXTURE_2_COINS;
+            case ScratchTicketPrize.BOUTEILLE -> CARD_TEXTURE_BOUTEILLE;
+            case ScratchTicketPrize.FIVE_COINS -> CARD_TEXTURE_5_COINS;
+            case ScratchTicketPrize.DIAMOND_BLOCK -> CARD_TEXTURE_DIAMOND;
+            case ScratchTicketPrize.IGNITIUM_BLOCK -> CARD_TEXTURE_IGNITIUM;
+            case ScratchTicketPrize.DISC -> CARD_TEXTURE_DISC;
+            case ScratchTicketPrize.BOUEE -> CARD_TEXTURE_BOUEE;
+            case ScratchTicketPrize.CARDS -> CARD_TEXTURE_CARDS;
+            case ScratchTicketPrize.PELUCHE -> CARD_TEXTURE_PELUCHE;
+            case ScratchTicketPrize.TEN_COINS -> CARD_TEXTURE_10_COINS;
+            case ScratchTicketPrize.STACK_COINS -> CARD_TEXTURE_64_COINS;
+            default -> CARD_TEXTURE_LOST;
         };
     }
 
@@ -54,18 +56,16 @@ public class ScratchTicketScreen extends Screen {
                     "textures/gui/scratch_ticket/card_goal_small_scratch.png"
             );
 
-    private static final int CARD_TEXTURE_WIDTH = 530;
-    private static final int CARD_TEXTURE_HEIGHT = 657;
+    private static final int CARD_TEXTURE_WIDTH = 760;
+    private static final int CARD_TEXTURE_HEIGHT = 1000;
 
     private static final int CARD_RENDER_WIDTH = 160;
-    private static final int CARD_RENDER_HEIGHT = 198;
+    private static final int CARD_RENDER_HEIGHT = Math.round(CARD_RENDER_WIDTH * ((float) CARD_TEXTURE_HEIGHT / CARD_TEXTURE_WIDTH));
 
-    // Zone grattable dans l'image originale 530x657
-    // De x=150, y=260 à x=380, y=500
-    private static final int SCRATCH_TEXTURE_X = 150;
-    private static final int SCRATCH_TEXTURE_Y = 260;
-    private static final int SCRATCH_TEXTURE_WIDTH = 230;
-    private static final int SCRATCH_TEXTURE_HEIGHT = 240;
+    private static final ScratchArea[] SCRATCH_AREAS = {
+            new ScratchArea(150, 348, 450, 430),
+            new ScratchArea(30, 889, 700, 88)
+    };
 
     private static final int GRID_COLS = 64;
     private static final int GRID_ROWS = 64;
@@ -111,12 +111,7 @@ public class ScratchTicketScreen extends Screen {
         int cardX = (this.width - CARD_RENDER_WIDTH) / 2;
         int cardY = (this.height - CARD_RENDER_HEIGHT) / 2;
 
-        int scratchX = getScratchRenderX(cardX);
-        int scratchY = getScratchRenderY(cardY);
-        int scratchWidth = getScratchRenderWidth();
-        int scratchHeight = getScratchRenderHeight();
-
-        // Image principale du ticket dessous : source 530x657, affichée en 160x198
+        // Image principale du ticket dessous : source 760x1000, affichée en 160x211
         guiGraphics.blit(
                 getCardTexture(),
                 cardX,
@@ -131,27 +126,27 @@ public class ScratchTicketScreen extends Screen {
                 CARD_TEXTURE_HEIGHT
         );
 
-        float cellWidth = (float) scratchWidth / GRID_COLS;
-        float cellHeight = (float) scratchHeight / GRID_ROWS;
+        float cellWidth = (float) CARD_RENDER_WIDTH / GRID_COLS;
+        float cellHeight = (float) CARD_RENDER_HEIGHT / GRID_ROWS;
 
         // Image scratch par-dessus, uniquement dans la zone grattable
         for (int row = 0; row < GRID_ROWS; row++) {
             for (int col = 0; col < GRID_COLS; col++) {
-                if (!scratchedPixels[col][row]) {
-                    int x = scratchX + Math.round(col * cellWidth);
-                    int y = scratchY + Math.round(row * cellHeight);
+                if (!scratchedPixels[col][row] && isScratchableCell(col, row)) {
+                    int x = cardX + Math.round(col * cellWidth);
+                    int y = cardY + Math.round(row * cellHeight);
 
-                    int nextX = scratchX + Math.round((col + 1) * cellWidth);
-                    int nextY = scratchY + Math.round((row + 1) * cellHeight);
+                    int nextX = cardX + Math.round((col + 1) * cellWidth);
+                    int nextY = cardY + Math.round((row + 1) * cellHeight);
 
                     int drawWidth = Math.max(1, nextX - x);
                     int drawHeight = Math.max(1, nextY - y);
 
-                    int u = SCRATCH_TEXTURE_X + Math.round(col * ((float) SCRATCH_TEXTURE_WIDTH / GRID_COLS));
-                    int v = SCRATCH_TEXTURE_Y + Math.round(row * ((float) SCRATCH_TEXTURE_HEIGHT / GRID_ROWS));
+                    int u = Math.round(col * ((float) CARD_TEXTURE_WIDTH / GRID_COLS));
+                    int v = Math.round(row * ((float) CARD_TEXTURE_HEIGHT / GRID_ROWS));
 
-                    int nextU = SCRATCH_TEXTURE_X + Math.round((col + 1) * ((float) SCRATCH_TEXTURE_WIDTH / GRID_COLS));
-                    int nextV = SCRATCH_TEXTURE_Y + Math.round((row + 1) * ((float) SCRATCH_TEXTURE_HEIGHT / GRID_ROWS));
+                    int nextU = Math.round((col + 1) * ((float) CARD_TEXTURE_WIDTH / GRID_COLS));
+                    int nextV = Math.round((row + 1) * ((float) CARD_TEXTURE_HEIGHT / GRID_ROWS));
 
                     int sourceWidth = Math.max(1, nextU - u);
                     int sourceHeight = Math.max(1, nextV - v);
@@ -200,26 +195,29 @@ public class ScratchTicketScreen extends Screen {
         int cardX = (this.width - CARD_RENDER_WIDTH) / 2;
         int cardY = (this.height - CARD_RENDER_HEIGHT) / 2;
 
-        int scratchX = getScratchRenderX(cardX);
-        int scratchY = getScratchRenderY(cardY);
-        int scratchWidth = getScratchRenderWidth();
-        int scratchHeight = getScratchRenderHeight();
-
-        int relativeX = (int) mouseX - scratchX;
-        int relativeY = (int) mouseY - scratchY;
+        int relativeX = (int) mouseX - cardX;
+        int relativeY = (int) mouseY - cardY;
 
         if (relativeX < 0 || relativeY < 0) {
             return;
         }
 
-        if (relativeX >= scratchWidth || relativeY >= scratchHeight) {
+        if (relativeX >= CARD_RENDER_WIDTH || relativeY >= CARD_RENDER_HEIGHT) {
+            return;
+        }
+
+        if (!isScratchableRenderPoint(relativeX, relativeY)) {
             return;
         }
 
         for (int row = 0; row < GRID_ROWS; row++) {
             for (int col = 0; col < GRID_COLS; col++) {
-                float cellCenterX = (col + 0.5f) * scratchWidth / GRID_COLS;
-                float cellCenterY = (row + 0.5f) * scratchHeight / GRID_ROWS;
+                if (!isScratchableCell(col, row)) {
+                    continue;
+                }
+
+                float cellCenterX = (col + 0.5f) * CARD_RENDER_WIDTH / GRID_COLS;
+                float cellCenterY = (row + 0.5f) * CARD_RENDER_HEIGHT / GRID_ROWS;
 
                 float dx = cellCenterX - relativeX;
                 float dy = cellCenterY - relativeY;
@@ -236,19 +234,43 @@ public class ScratchTicketScreen extends Screen {
         }
     }
 
-    private int getScratchRenderX(int cardX) {
-        return cardX + Math.round(SCRATCH_TEXTURE_X * ((float) CARD_RENDER_WIDTH / CARD_TEXTURE_WIDTH));
+    private static ResourceLocation cardTexture(String fileName) {
+        return ResourceLocation.fromNamespaceAndPath(
+                AsmpThingsMod.MOD_ID,
+                "textures/gui/scratch_ticket/" + fileName
+        );
     }
 
-    private int getScratchRenderY(int cardY) {
-        return cardY + Math.round(SCRATCH_TEXTURE_Y * ((float) CARD_RENDER_HEIGHT / CARD_TEXTURE_HEIGHT));
+    private static boolean isScratchableCell(int col, int row) {
+        float textureX = (col + 0.5f) * CARD_TEXTURE_WIDTH / GRID_COLS;
+        float textureY = (row + 0.5f) * CARD_TEXTURE_HEIGHT / GRID_ROWS;
+
+        return isScratchableTexturePoint(textureX, textureY);
     }
 
-    private int getScratchRenderWidth() {
-        return Math.round(SCRATCH_TEXTURE_WIDTH * ((float) CARD_RENDER_WIDTH / CARD_TEXTURE_WIDTH));
+    private static boolean isScratchableRenderPoint(float relativeX, float relativeY) {
+        float textureX = relativeX * CARD_TEXTURE_WIDTH / CARD_RENDER_WIDTH;
+        float textureY = relativeY * CARD_TEXTURE_HEIGHT / CARD_RENDER_HEIGHT;
+
+        return isScratchableTexturePoint(textureX, textureY);
     }
 
-    private int getScratchRenderHeight() {
-        return Math.round(SCRATCH_TEXTURE_HEIGHT * ((float) CARD_RENDER_HEIGHT / CARD_TEXTURE_HEIGHT));
+    private static boolean isScratchableTexturePoint(float textureX, float textureY) {
+        for (ScratchArea area : SCRATCH_AREAS) {
+            if (area.contains(textureX, textureY)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private record ScratchArea(int x, int y, int width, int height) {
+        boolean contains(float textureX, float textureY) {
+            return textureX >= x
+                    && textureY >= y
+                    && textureX < x + width
+                    && textureY < y + height;
+        }
     }
 }

@@ -1,8 +1,9 @@
 package net.maximlvr.asmpthings;
 
-import net.maximlvr.asmpthings.client.render.CrawlerRenderer;
 import net.maximlvr.asmpthings.block.entity.ModBlockEntities;
 import net.maximlvr.asmpthings.client.render.BankBlockEntityRenderer;
+import net.maximlvr.asmpthings.client.render.CubeBossRenderer;
+import net.maximlvr.asmpthings.client.render.CubeBossSwordRenderer;
 import net.maximlvr.asmpthings.entity.ModEntities;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -13,11 +14,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.common.NeoForge;
-import net.maximlvr.asmpthings.client.model.CrawlerModel;
-import net.maximlvr.asmpthings.client.render.CrawlerHandRenderer;
-import net.maximlvr.asmpthings.client.model.CrawlerHandModel;
-import net.maximlvr.asmpthings.client.model.CrawlerArmModel;
+import net.maximlvr.asmpthings.client.model.CubeBossModel;
 
 // This class will not load on dedicated servers. Accessing client side code from here is safe.
 @Mod(value = AsmpThingsMod.MOD_ID, dist = Dist.CLIENT)
@@ -36,15 +33,13 @@ public class AsmpThingsModClient {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(ModEntities.CRAWLER.get(), CrawlerRenderer::new);
-        event.registerEntityRenderer(ModEntities.CRAWLER_HAND.get(), CrawlerHandRenderer::new);
+        event.registerEntityRenderer(ModEntities.CUBE_BOSS.get(), CubeBossRenderer::new);
+        event.registerEntityRenderer(ModEntities.CUBE_BOSS_SWORD.get(), CubeBossSwordRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.BANK.get(), BankBlockEntityRenderer::new);
     }
 
     @SubscribeEvent
     public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
-        event.registerLayerDefinition(CrawlerModel.LAYER_LOCATION, CrawlerModel::createBodyLayer);
-        event.registerLayerDefinition(CrawlerHandModel.LAYER_LOCATION, CrawlerHandModel::createBodyLayer);
-        event.registerLayerDefinition(CrawlerArmModel.LAYER_LOCATION, CrawlerArmModel::createBodyLayer);
+        event.registerLayerDefinition(CubeBossModel.LAYER_LOCATION, CubeBossModel::createBodyLayer);
     }
 }

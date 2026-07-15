@@ -2,7 +2,6 @@ package net.maximlvr.asmpthings.item.custom;
 
 import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
@@ -20,10 +19,12 @@ public class ScratchTicketItem extends Item {
         ItemStack stack = player.getItemInHand(usedHand);
 
         if (!level.isClientSide()) {
+            ScratchTicketPrize.simulate(level.random, 1_000_000);
+
             int prize = stack.getOrDefault(ModDataComponents.SCRATCH_PRIZE, -1);
 
             if (prize == -1) {
-                int generatedPrize = generatePrize(level.random);
+                int generatedPrize = ScratchTicketPrize.generate(level.random);
                 stack.set(ModDataComponents.SCRATCH_PRIZE, generatedPrize);
             }
 
@@ -43,21 +44,4 @@ public class ScratchTicketItem extends Item {
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
 
-    private int generatePrize(RandomSource random) {
-        int roll = random.nextInt(10);
-
-        if (roll == 0) {
-            return 10;
-        }
-
-        if (roll <= 2) {
-            return 5;
-        }
-
-        if (roll <= 5) {
-            return 1;
-        }
-
-        return 0;
-    }
 }

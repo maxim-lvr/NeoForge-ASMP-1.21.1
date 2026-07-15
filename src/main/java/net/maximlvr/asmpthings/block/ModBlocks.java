@@ -49,6 +49,14 @@ public class ModBlocks {
                     .sound(SoundType.METAL))
     );
 
+    public static final DeferredBlock<Block> KELETE_KALIFA = registerBlock(
+            "kelete_kalifa",
+            () -> new HorizontalFacingBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+                    .noOcclusion()
+                    .strength(2.0F)
+                    .sound(SoundType.METAL))
+    );
+
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
         registerBlockItem(name, toReturn);

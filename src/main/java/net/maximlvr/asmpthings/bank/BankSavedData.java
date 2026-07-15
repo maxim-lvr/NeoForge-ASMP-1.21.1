@@ -48,11 +48,51 @@ public class BankSavedData extends SavedData {
                 continue;
             }
 
+            List<BankMember> members = new ArrayList<>();
+            ListTag memberTags = accountTag.getList("members", 10);
+
+            for (int memberIndex = 0; memberIndex < memberTags.size(); memberIndex++) {
+                CompoundTag memberTag = memberTags.getCompound(memberIndex);
+
+                try {
+                    members.add(new BankMember(memberTag.getUUID("id"), memberTag.getString("name")));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+
+            List<BankCitizen> citizens = new ArrayList<>();
+            ListTag citizenTags = accountTag.getList("citizens", 10);
+
+            for (int citizenIndex = 0; citizenIndex < citizenTags.size(); citizenIndex++) {
+                CompoundTag citizenTag = citizenTags.getCompound(citizenIndex);
+                String iban = citizenTag.getString("iban");
+                UUID playerId;
+
+                try {
+                    playerId = citizenTag.getUUID("playerId");
+                } catch (RuntimeException exception) {
+                    continue;
+                }
+
+                if (iban.isEmpty() || iban.length() == 4) {
+                    citizens.add(new BankCitizen(
+                            playerId,
+                            citizenTag.getString("name"),
+                            iban,
+                            Math.max(0, citizenTag.getInt("salary")),
+                            citizenTag.getString("lastPaidDay")
+                    ));
+                }
+            }
+
             data.accounts.put(id, new BankAccount(
                     id,
                     accountTag.getString("name"),
                     owner,
-                    Math.max(0, accountTag.getInt("balance"))
+                    Math.max(0, accountTag.getInt("balance")),
+                    members,
+                    accountTag.getBoolean("adminAccount"),
+                    citizens
             ));
         }
 
@@ -96,6 +136,32 @@ public class BankSavedData extends SavedData {
             accountTag.putString("name", account.name());
             accountTag.putUUID("owner", account.owner());
             accountTag.putInt("balance", account.balance());
+            accountTag.putBoolean("adminAccount", account.adminAccount());
+
+            ListTag memberTags = new ListTag();
+
+            for (BankMember member : account.members()) {
+                CompoundTag memberTag = new CompoundTag();
+                memberTag.putUUID("id", member.id());
+                memberTag.putString("name", member.name());
+                memberTags.add(memberTag);
+            }
+
+            accountTag.put("members", memberTags);
+
+            ListTag citizenTags = new ListTag();
+
+            for (BankCitizen citizen : account.citizens()) {
+                CompoundTag citizenTag = new CompoundTag();
+                citizenTag.putUUID("playerId", citizen.playerId());
+                citizenTag.putString("name", citizen.name());
+                citizenTag.putString("iban", citizen.iban());
+                citizenTag.putInt("salary", citizen.salary());
+                citizenTag.putString("lastPaidDay", citizen.lastPaidDay());
+                citizenTags.add(citizenTag);
+            }
+
+            accountTag.put("citizens", citizenTags);
             list.add(accountTag);
         }
 
@@ -124,7 +190,20 @@ public class BankSavedData extends SavedData {
         return tag;
     }
 
-    public List<BankAccount> getAccounts(UUID owner) {
+    public List<BankAccount> getAccounts(UUID playerId) {
+        List<BankAccount> accessibleAccounts = new ArrayList<>();
+
+        for (BankAccount account : accounts.values()) {
+            if (account.hasAccess(playerId)) {
+                accessibleAccounts.add(account);
+            }
+        }
+
+        accessibleAccounts.sort(Comparator.comparing(BankAccount::name).thenComparing(BankAccount::id));
+        return accessibleAccounts;
+    }
+
+    public List<BankAccount> getOwnedAccounts(UUID owner) {
         List<BankAccount> ownedAccounts = new ArrayList<>();
 
         for (BankAccount account : accounts.values()) {
@@ -133,7 +212,6 @@ public class BankSavedData extends SavedData {
             }
         }
 
-        ownedAccounts.sort(Comparator.comparing(BankAccount::name).thenComparing(BankAccount::id));
         return ownedAccounts;
     }
 
@@ -159,6 +237,157 @@ public class BankSavedData extends SavedData {
         accounts.put(id, account);
         setDirty();
         return account;
+    }
+
+    public BankAccount createAdminAccount(String name, RandomSource random) {
+        String id = generateId(random);
+        BankAccount account = new BankAccount(id, name, new UUID(0L, 0L), 0, List.of(), true, List.of());
+        accounts.put(id, account);
+        setDirty();
+        return account;
+    }
+
+    public BankAccount getAdminAccountByName(String name) {
+        for (BankAccount account : accounts.values()) {
+            if (account.adminAccount() && account.name().equalsIgnoreCase(name)) {
+                return account;
+            }
+        }
+
+        return null;
+    }
+
+    public boolean addMember(String id, UUID owner, UUID memberId, String memberName) {
+        BankAccount account = accounts.get(id);
+
+        if (account == null || !account.owner().equals(owner) || account.owner().equals(memberId)) {
+            return false;
+        }
+
+        List<BankMember> members = new ArrayList<>(account.members());
+        members.removeIf(member -> member.id().equals(memberId));
+        members.add(new BankMember(memberId, memberName));
+        members.sort(Comparator.comparing(BankMember::name).thenComparing(member -> member.id().toString()));
+        accounts.put(id, account.withMembers(members));
+        setDirty();
+        return true;
+    }
+
+    public boolean addAdminMember(String id, UUID memberId, String memberName) {
+        BankAccount account = accounts.get(id);
+
+        if (account == null || !account.adminAccount()) {
+            return false;
+        }
+
+        List<BankMember> members = new ArrayList<>(account.members());
+        members.removeIf(member -> member.id().equals(memberId));
+        members.add(new BankMember(memberId, memberName));
+        members.sort(Comparator.comparing(BankMember::name).thenComparing(member -> member.id().toString()));
+        accounts.put(id, account.withMembers(members));
+        setDirty();
+        return true;
+    }
+
+    public boolean saveCitizen(String id, UUID playerId, String name, String iban, int salary) {
+        BankAccount account = accounts.get(id);
+
+        if (account == null || !account.adminAccount() || playerId.equals(new UUID(0L, 0L)) || salary < 0) {
+            return false;
+        }
+
+        if (!iban.isEmpty() && (iban.length() != 4 || getAccount(iban) == null)) {
+            return false;
+        }
+
+        List<BankCitizen> citizens = new ArrayList<>(account.citizens());
+        citizens.removeIf(citizen -> citizen.playerId().equals(playerId));
+        citizens.add(new BankCitizen(playerId, name, iban, salary, ""));
+        citizens.sort(Comparator.comparing(BankCitizen::name).thenComparing(BankCitizen::iban));
+        accounts.put(id, account.withCitizens(citizens));
+        setDirty();
+        return true;
+    }
+
+    public List<SalaryPayment> payDailySalary(UUID playerId, String day, BankPlayerRegistry playerRegistry) {
+        List<SalaryPayment> payments = new ArrayList<>();
+
+        if (!playerRegistry.isDisplayed(playerId)) {
+            return payments;
+        }
+
+        for (BankAccount account : new ArrayList<>(accounts.values())) {
+            if (!account.adminAccount()) {
+                continue;
+            }
+
+            List<BankCitizen> citizens = new ArrayList<>(account.citizens());
+            boolean changed = false;
+
+            for (int i = 0; i < citizens.size(); i++) {
+                BankCitizen citizen = citizens.get(i);
+
+                if (!citizen.playerId().equals(playerId) || citizen.lastPaidDay().equals(day)) {
+                    continue;
+                }
+
+                BankPlayerRegistry.Entry playerEntry = playerRegistry.get(playerId);
+                if (playerEntry != null && !citizen.name().equals(playerEntry.name())) {
+                    citizen = citizen.withName(playerEntry.name());
+                    citizens.set(i, citizen);
+                    changed = true;
+                }
+
+                if (citizen.salary() == 0) {
+                    citizens.set(i, citizen.withLastPaidDay(day));
+                    changed = true;
+                    payments.add(new SalaryPayment(account.name(), 0, true));
+                    continue;
+                }
+
+                BankAccount target = accounts.get(citizen.iban());
+                BankAccount source = accounts.get(account.id());
+
+                if (target == null || source == null || source.balance() < citizen.salary()) {
+                    citizens.set(i, citizen.withLastPaidDay(day));
+                    changed = true;
+                    payments.add(new SalaryPayment(account.name(), citizen.salary(), false));
+                    continue;
+                }
+
+                accounts.put(account.id(), source.withBalance(source.balance() - citizen.salary()));
+                accounts.put(target.id(), target.withBalance(target.balance() + citizen.salary()));
+                citizens.set(i, citizen.withLastPaidDay(day));
+                changed = true;
+                payments.add(new SalaryPayment(account.name(), citizen.salary(), true));
+            }
+
+            if (changed) {
+                BankAccount updated = accounts.get(account.id());
+                accounts.put(account.id(), updated.withCitizens(citizens));
+                setDirty();
+            }
+        }
+
+        return payments;
+    }
+
+    public boolean removeMember(String id, UUID owner, UUID memberId) {
+        BankAccount account = accounts.get(id);
+
+        if (account == null || !account.owner().equals(owner)) {
+            return false;
+        }
+
+        List<BankMember> members = new ArrayList<>(account.members());
+
+        if (!members.removeIf(member -> member.id().equals(memberId))) {
+            return false;
+        }
+
+        accounts.put(id, account.withMembers(members));
+        setDirty();
+        return true;
     }
 
     public boolean deposit(String id, int amount) {
@@ -209,5 +438,8 @@ public class BankSavedData extends SavedData {
         }
 
         throw new IllegalStateException("No bank account ids available");
+    }
+
+    public record SalaryPayment(String accountName, int amount, boolean paid) {
     }
 }

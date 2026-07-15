@@ -22,12 +22,17 @@ public class ModCreativeModeTabs {
                     .title(Component.translatable("creativetab.asmpthingsmod.asmp_item"))
                     .displayItems((itemDisplayParameters, output) -> {
                         output.accept(ModItems.CORONA);
+                        output.accept(ModItems.DESPERADOS);
+                        output.accept(ModItems.HUIT_SIX);
+                        output.accept(ModItems.KRONENBOURG);
                         output.accept(ModItems.CRAZY_COIN);
                         output.accept(ModItems.GOLDEN_NUT);
                         output.accept(ModItems.COSMECOIN);
                         output.accept(ModItems.WEATHER_STAFF);
                         output.accept(ModItems.WEATHER_TANK);
-                        output.accept(ModItems.CRAZY_PHONE);
+                        output.accept(ModItems.CRAZY_PHONE_14);
+                        output.accept(ModItems.CRAZY_PHONE_GOLDEN);
+                        output.accept(ModItems.CRAZY_PHONE_BLUE_NIGHT);
                         output.accept(ModItems.BLUE_CARD);
                         output.accept(ModItems.RED_CARD);
                         output.accept(ModItems.GREEN_CARD);
@@ -37,6 +42,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.BANK);
                         output.accept(ModBlocks.BANK_DOWN);
                         output.accept(ModBlocks.CARD_READER);
+                        output.accept(ModBlocks.KELETE_KALIFA);
 
                     }).build());
 

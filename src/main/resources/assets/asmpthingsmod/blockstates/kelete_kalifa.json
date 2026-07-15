@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "asmpthingsmod:block/kelete_kalifa"
+    },
+    "facing=east": {
+      "model": "asmpthingsmod:block/kelete_kalifa",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "asmpthingsmod:block/kelete_kalifa",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "asmpthingsmod:block/kelete_kalifa",
+      "y": 270
+    }
+  }
+}

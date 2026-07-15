@@ -56,12 +56,16 @@
       "translation": [0, 4.25, 0]
     },
     "gui": {
-      "rotation": [0, 180, 0],
-      "translation": [0, 7.5, 0],
-      "scale": [1.8, 1.8, 1.8]
+      "rotation": [19, -144, 0],
+      "translation": [0.25, 5.75, 0],
+      "scale": [1.6, 1.6, 1.6]
     },
     "fixed": {
       "translation": [0, 5.75, 0],
+      "scale": [1.5, 1.5, 1.5]
+    },
+    "on_shelf": {
+      "rotation": [0, 180, 0],
       "scale": [1.5, 1.5, 1.5]
     }
   }

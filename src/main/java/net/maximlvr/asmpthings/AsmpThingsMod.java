@@ -1,9 +1,11 @@
 package net.maximlvr.asmpthings;
 
 import net.maximlvr.asmpthings.ai.AiNpcChatHandler;
+import net.maximlvr.asmpthings.bank.BankEvents;
 import net.maximlvr.asmpthings.block.ModBlocks;
 import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.maximlvr.asmpthings.entity.ModEntities;
+import net.maximlvr.asmpthings.entity.custom.CubeBossEntity;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
 import net.maximlvr.asmpthings.item.ModItems;
 import net.maximlvr.asmpthings.network.ModNetworking;
@@ -21,7 +23,6 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 
-import net.maximlvr.asmpthings.entity.custom.CrawlerEntity;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 
 import net.maximlvr.asmpthings.block.entity.ModBlockEntities;
@@ -39,6 +40,7 @@ public class AsmpThingsMod {
 
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.register(new AiNpcChatHandler());
+        NeoForge.EVENT_BUS.register(new BankEvents());
 
 
         ModCreativeModeTabs.register(modEventBus);
@@ -74,7 +76,7 @@ public class AsmpThingsMod {
     }
 
     private void registerAttributes(EntityAttributeCreationEvent event) {
-        event.put(ModEntities.CRAWLER.get(), CrawlerEntity.createAttributes().build());
+        event.put(ModEntities.CUBE_BOSS.get(), CubeBossEntity.createAttributes().build());
     }
 
 }
