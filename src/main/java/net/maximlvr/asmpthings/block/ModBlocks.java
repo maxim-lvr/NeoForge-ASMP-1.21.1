@@ -45,6 +45,7 @@ public class ModBlocks {
     public static final DeferredBlock<Block> CARD_READER = registerBlock(
             "card_reader",
             () -> new CardReaderBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+                    .noOcclusion()
                     .strength(3.0F)
                     .sound(SoundType.METAL))
     );
@@ -52,6 +53,14 @@ public class ModBlocks {
     public static final DeferredBlock<Block> KELETE_KALIFA = registerBlock(
             "kelete_kalifa",
             () -> new HorizontalFacingBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+                    .noOcclusion()
+                    .strength(2.0F)
+                    .sound(SoundType.METAL))
+    );
+
+    public static final DeferredBlock<Block> SKELETE_SHOP_TEST = registerBlock(
+            "skelete_shop_test",
+            () -> new SkeleteShopTestBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
                     .noOcclusion()
                     .strength(2.0F)
                     .sound(SoundType.METAL))

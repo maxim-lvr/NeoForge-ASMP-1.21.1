@@ -12,6 +12,7 @@ public class CardReaderBlockEntity extends BlockEntity {
     private UUID owner;
     private String targetAccountId = "";
     private int amount = 1;
+    private long lastPaymentGameTime = -1000L;
 
     public CardReaderBlockEntity(BlockPos pos, BlockState blockState) {
         super(ModBlockEntities.CARD_READER.get(), pos, blockState);
@@ -58,6 +59,15 @@ public class CardReaderBlockEntity extends BlockEntity {
     public void configure(String targetAccountId, int amount) {
         this.targetAccountId = targetAccountId;
         this.amount = Math.max(1, amount);
+        setChanged();
+    }
+
+    public boolean canAcceptPayment(long gameTime, int cooldownTicks) {
+        return gameTime - lastPaymentGameTime >= cooldownTicks;
+    }
+
+    public void markPayment(long gameTime) {
+        lastPaymentGameTime = gameTime;
         setChanged();
     }
 }

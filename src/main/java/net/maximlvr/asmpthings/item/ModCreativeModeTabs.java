@@ -43,6 +43,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.BANK_DOWN);
                         output.accept(ModBlocks.CARD_READER);
                         output.accept(ModBlocks.KELETE_KALIFA);
+                        output.accept(ModBlocks.SKELETE_SHOP_TEST);
 
                     }).build());
 

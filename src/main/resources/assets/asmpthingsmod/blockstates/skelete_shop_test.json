@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "asmpthingsmod:block/skelete_shop_test"
+    },
+    "facing=east": {
+      "model": "asmpthingsmod:block/skelete_shop_test",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "asmpthingsmod:block/skelete_shop_test",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "asmpthingsmod:block/skelete_shop_test",
+      "y": 270
+    }
+  }
+}

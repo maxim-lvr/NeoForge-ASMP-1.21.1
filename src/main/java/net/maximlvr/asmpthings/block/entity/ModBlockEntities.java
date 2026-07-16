@@ -21,6 +21,10 @@ public class ModBlockEntities {
             BLOCK_ENTITY_TYPES.register("bank",
                     () -> BlockEntityType.Builder.of(BankBlockEntity::new, ModBlocks.BANK.get(), ModBlocks.BANK_DOWN.get()).build(null));
 
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<SkeleteShopTestBlockEntity>> SKELETE_SHOP_TEST =
+            BLOCK_ENTITY_TYPES.register("skelete_shop_test",
+                    () -> BlockEntityType.Builder.of(SkeleteShopTestBlockEntity::new, ModBlocks.SKELETE_SHOP_TEST.get()).build(null));
+
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITY_TYPES.register(eventBus);
     }

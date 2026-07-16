@@ -1032,18 +1032,20 @@ public class ModNetworking {
             return;
         }
 
+        long gameTime = player.level().getGameTime();
+
+        if (!blockEntity.canAcceptPayment(gameTime, CardReaderBlock.PAYMENT_COOLDOWN_TICKS)) {
+            player.displayClientMessage(Component.literal("Lecteur en attente."), true);
+            return;
+        }
+
         if (!bank.transfer(cardAccountId, blockEntity.getTargetAccountId(), blockEntity.getAmount())) {
             player.displayClientMessage(Component.literal("Paiement refuse."), true);
             return;
         }
 
-        BlockState state = player.level().getBlockState(payload.pos());
-
-        if (state.getBlock() instanceof CardReaderBlock && !state.getValue(CardReaderBlock.POWERED)) {
-            player.level().setBlock(payload.pos(), state.setValue(CardReaderBlock.POWERED, true), 3);
-            player.level().scheduleTick(payload.pos(), state.getBlock(), 20);
-            player.level().updateNeighborsAt(payload.pos(), state.getBlock());
-        }
+        blockEntity.markPayment(gameTime);
+        CardReaderBlock.triggerPaymentSignal(player.level(), payload.pos());
 
         player.displayClientMessage(Component.literal("Paiement accepte."), true);
     }
