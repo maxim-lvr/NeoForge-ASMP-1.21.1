@@ -30,39 +30,39 @@ public class ModBlocks {
 
     public static final DeferredBlock<Block> BANK = registerBlock(
             "bank",
-            () -> new BankBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
-                    .strength(4.0F)
+            () -> new BankBlock(BlockBehaviour.Properties.of()
+                    .strength(1.5F, 6.0F)
                     .sound(SoundType.METAL))
     );
 
     public static final DeferredBlock<Block> BANK_DOWN = registerBlock(
             "bank_down",
-            () -> new BankBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
-                    .strength(4.0F)
+            () -> new BankBlock(BlockBehaviour.Properties.of()
+                    .strength(1.5F, 6.0F)
                     .sound(SoundType.METAL))
     );
 
     public static final DeferredBlock<Block> CARD_READER = registerBlock(
             "card_reader",
-            () -> new CardReaderBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+            () -> new CardReaderBlock(BlockBehaviour.Properties.of()
                     .noOcclusion()
-                    .strength(3.0F)
+                    .strength(1.0F, 4.0F)
                     .sound(SoundType.METAL))
     );
 
     public static final DeferredBlock<Block> KELETE_KALIFA = registerBlock(
             "kelete_kalifa",
-            () -> new HorizontalFacingBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+            () -> new HorizontalFacingBlock(BlockBehaviour.Properties.of()
                     .noOcclusion()
-                    .strength(2.0F)
+                    .strength(1.0F, 4.0F)
                     .sound(SoundType.METAL))
     );
 
     public static final DeferredBlock<Block> SKELETE_SHOP_TEST = registerBlock(
             "skelete_shop_test",
-            () -> new SkeleteShopTestBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.IRON_BLOCK)
+            () -> new SkeleteShopTestBlock(BlockBehaviour.Properties.of()
                     .noOcclusion()
-                    .strength(2.0F)
+                    .strength(1.0F, 4.0F)
                     .sound(SoundType.METAL))
     );
 

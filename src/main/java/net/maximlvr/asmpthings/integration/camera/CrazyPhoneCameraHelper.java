@@ -357,7 +357,7 @@ public final class CrazyPhoneCameraHelper {
             return ItemStack.EMPTY;
         }
 
-        return ItemStack.parseOptional(registries, tag.getCompound(TAG_CAMERA_ALBUM));
+        return parseSavedItem(registries, tag.getCompound(TAG_CAMERA_ALBUM));
     }
 
     private static List<ItemStack> getOrCreateCameraAlbums(HolderLookup.Provider registries, CompoundTag tag) {
@@ -377,7 +377,7 @@ public final class CrazyPhoneCameraHelper {
             ListTag albumTags = tag.getList(TAG_CAMERA_ALBUMS, 10);
 
             for (int i = 0; i < albumTags.size(); i++) {
-                ItemStack album = ItemStack.parseOptional(registries, albumTags.getCompound(i));
+                ItemStack album = parseSavedItem(registries, albumTags.getCompound(i));
 
                 if (!album.isEmpty()) {
                     albums.add(album);
@@ -401,7 +401,15 @@ public final class CrazyPhoneCameraHelper {
             return ItemStack.EMPTY;
         }
 
-        return ItemStack.parseOptional(registries, tag.getCompound(TAG_CAMERA_ALBUM));
+        return parseSavedItem(registries, tag.getCompound(TAG_CAMERA_ALBUM));
+    }
+
+    private static ItemStack parseSavedItem(HolderLookup.Provider registries, CompoundTag tag) {
+        if (!tag.contains("id")) {
+            return ItemStack.EMPTY;
+        }
+
+        return ItemStack.parseOptional(registries, tag);
     }
 
     private static void saveCameraAlbums(HolderLookup.Provider registries, CompoundTag tag, List<ItemStack> albums) {

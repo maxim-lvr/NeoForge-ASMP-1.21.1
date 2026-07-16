@@ -931,7 +931,10 @@ public class CrazyPhoneScreen extends Screen {
                 String kind = messageTag.getString("kind");
 
                 if ("camera_photo".equals(kind) && minecraft != null && minecraft.level != null) {
-                    ItemStack image = ItemStack.parseOptional(minecraft.level.registryAccess(), messageTag.getCompound("image"));
+                    CompoundTag imageTag = messageTag.getCompound("image");
+                    ItemStack image = imageTag.contains("id")
+                            ? ItemStack.parseOptional(minecraft.level.registryAccess(), imageTag)
+                            : ItemStack.EMPTY;
 
                     if (!image.isEmpty()) {
                         messages.add(new MessageEntry(text.isEmpty() ? "[Photo]" : text, messageTag.getBoolean("outgoing"), kind, image, null));

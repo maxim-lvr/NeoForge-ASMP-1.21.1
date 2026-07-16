@@ -55,48 +55,6 @@ public final class ScratchTicketPrize {
         return LOST;
     }
 
-    public static void simulate(RandomSource random, int generations) {
-        int[] counts = new int[65];
-
-        for (int i = 0; i < generations; i++) {
-            int prize = generate(random);
-            counts[prize]++;
-        }
-
-        printSimulationResult("Perdu", LOST, counts, generations);
-        printSimulationResult("2 CrazyCoins", TWO_COINS, counts, generations);
-        printSimulationResult("5 CrazyCoins", FIVE_COINS, counts, generations);
-        printSimulationResult("10 CrazyCoins", TEN_COINS, counts, generations);
-        printSimulationResult("Chiengue", CHIENGUE, counts, generations);
-        printSimulationResult("Kombuciao", KOMBUCIAO, counts, generations);
-        printSimulationResult("Bouteille", BOUTEILLE, counts, generations);
-        printSimulationResult("Bloc de diamant", DIAMOND_BLOCK, counts, generations);
-        printSimulationResult("Bloc d'Ignitium", IGNITIUM_BLOCK, counts, generations);
-        printSimulationResult("Disque", DISC, counts, generations);
-        printSimulationResult("Bouée", BOUEE, counts, generations);
-        printSimulationResult("Cartes", CARDS, counts, generations);
-        printSimulationResult("Peluche", PELUCHE, counts, generations);
-        printSimulationResult("64 CrazyCoins", STACK_COINS, counts, generations);
-    }
-
-    private static void printSimulationResult(
-            String name,
-            int prize,
-            int[] counts,
-            int generations
-    ) {
-        int count = counts[prize];
-        double percentage = count * 100.0 / generations;
-
-        System.out.printf(
-                "%-20s : %8d fois | %8.4f %% | environ 1 sur %.2f%n",
-                name,
-                count,
-                percentage,
-                count == 0 ? 0.0 : (double) generations / count
-        );
-    }
-
     private record PrizeWeight(int prize, int weight) {
     }
 }
