@@ -38,6 +38,7 @@ import net.maximlvr.asmpthings.network.payload.SetupCrazyPhonePayload;
 import net.maximlvr.asmpthings.network.payload.OpenCardReaderPinPayload;
 import net.maximlvr.asmpthings.network.payload.SubmitCardReaderPinPayload;
 import net.maximlvr.asmpthings.network.payload.TakeCrazyPhonePhotoPayload;
+import net.maximlvr.asmpthings.stats.ModStats;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -62,6 +63,14 @@ public class ModNetworking {
     private static final int GRID_COLS = 64;
     private static final int GRID_ROWS = 64;
     private static final int TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+    private static final int CARD_TEXTURE_WIDTH = 760;
+    private static final int CARD_TEXTURE_HEIGHT = 1000;
+    private static final ScratchArea[] SCRATCH_AREAS = {
+            new ScratchArea(150, 348, 450, 430),
+            new ScratchArea(30, 889, 700, 88)
+    };
+    private static final int SCRATCHABLE_CELLS = countScratchableCells();
+    private static final int SCRATCH_STAT_THRESHOLD = Math.max(1, (int) Math.ceil(SCRATCHABLE_CELLS * 0.05D));
     private static final int MAX_BANK_ACCOUNTS = 5;
 
     public static void register(IEventBus eventBus) {
@@ -76,7 +85,9 @@ public class ModNetworking {
                 ScratchTicketScratchPayload.STREAM_CODEC,
                 (payload, context) -> {
                     context.enqueueWork(() -> {
-                        var player = context.player();
+                        if (!(context.player() instanceof ServerPlayer player)) {
+                            return;
+                        }
 
                         ItemStack stack = player.getMainHandItem();
 
@@ -104,6 +115,7 @@ public class ModNetworking {
                         chars[index] = '1';
 
                         stack.set(ModDataComponents.SCRATCH_DATA, new String(chars));
+                        awardScratchTicketStatIfNeeded(player, stack, chars);
                     });
                 }
         );
@@ -572,6 +584,7 @@ public class ModNetworking {
                                 return;
                             }
 
+                            player.awardStat(ModStats.CRAZY_PHONE_MESSAGES_SENT.get(), sent);
                             syncPhone(player, payload.mainHand(), senderStack);
                             syncHeldPhone(targetPhone);
                             sendPhotoResult(player, true, sent == 1 ? "Photo envoyee" : sent + " photos envoyees");
@@ -666,6 +679,7 @@ public class ModNetworking {
                         long time = player.serverLevel().getGameTime();
                         addPhoneUploadedPhotoMessage(senderStack, contactNumber, senderNumber, contactNumber, title, texture, type, true, time);
                         addPhoneUploadedPhotoMessage(targetPhone.stack(), senderNumber, senderNumber, contactNumber, title, texture, type, false, time);
+                        player.awardStat(ModStats.CRAZY_PHONE_MESSAGES_SENT.get());
                         syncPhone(player, payload.mainHand(), senderStack);
                         syncHeldPhone(targetPhone);
 
@@ -717,6 +731,7 @@ public class ModNetworking {
                         long time = player.serverLevel().getGameTime();
                         addPhoneMessage(senderStack, contactNumber, senderNumber, contactNumber, message, true, time);
                         addPhoneMessage(targetPhone.stack(), senderNumber, senderNumber, contactNumber, message, false, time);
+                        player.awardStat(ModStats.CRAZY_PHONE_MESSAGES_SENT.get());
                         syncHeldPhone(targetPhone);
                         sendMessageResult(player, true, contactNumber, message, "Message envoye");
                     });
@@ -783,6 +798,67 @@ public class ModNetworking {
                 }
         );
 
+    }
+
+    private static void awardScratchTicketStatIfNeeded(ServerPlayer player, ItemStack stack, char[] scratchData) {
+        if (stack.getOrDefault(ModDataComponents.SCRATCH_STAT_COUNTED, false)) {
+            return;
+        }
+
+        if (countScratchedScratchableCells(scratchData) < SCRATCH_STAT_THRESHOLD) {
+            return;
+        }
+
+        player.awardStat(ModStats.SCRATCH_TICKETS_SCRATCHED.get());
+        stack.set(ModDataComponents.SCRATCH_STAT_COUNTED, true);
+    }
+
+    private static int countScratchedScratchableCells(char[] scratchData) {
+        int count = 0;
+
+        for (int index = 0; index < Math.min(scratchData.length, TOTAL_CELLS); index++) {
+            int col = index % GRID_COLS;
+            int row = index / GRID_COLS;
+
+            if (scratchData[index] == '1' && isScratchableCell(col, row)) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static int countScratchableCells() {
+        int count = 0;
+
+        for (int col = 0; col < GRID_COLS; col++) {
+            for (int row = 0; row < GRID_ROWS; row++) {
+                if (isScratchableCell(col, row)) {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private static boolean isScratchableCell(int col, int row) {
+        float textureX = (col + 0.5F) * CARD_TEXTURE_WIDTH / GRID_COLS;
+        float textureY = (row + 0.5F) * CARD_TEXTURE_HEIGHT / GRID_ROWS;
+        return isScratchableTexturePoint(textureX, textureY);
+    }
+
+    private static boolean isScratchableTexturePoint(float textureX, float textureY) {
+        for (ScratchArea area : SCRATCH_AREAS) {
+            if (textureX >= area.x()
+                    && textureX < area.x() + area.width()
+                    && textureY >= area.y()
+                    && textureY < area.y() + area.height()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static String sanitize(String value, int maxLength) {
@@ -1546,5 +1622,8 @@ public class ModNetworking {
     }
 
     private record CameraPhotoSelection(int albumIndex, int imageIndex) {
+    }
+
+    private record ScratchArea(int x, int y, int width, int height) {
     }
 }

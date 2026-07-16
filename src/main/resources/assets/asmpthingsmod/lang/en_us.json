@@ -28,6 +28,9 @@
 
  "entity.asmpthingsmod.cube_boss": "Cube Boss",
 
+ "stat.asmpthingsmod.scratch_tickets_scratched": "Tickets grattes",
+ "stat.asmpthingsmod.crazy_phone_messages_sent": "Messages CrazyPhone envoyes",
+
 
  "creativetab.asmpthingsmod.asmp_item": "ASMP"
 }

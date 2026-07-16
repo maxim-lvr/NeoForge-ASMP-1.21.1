@@ -9,6 +9,7 @@ import net.maximlvr.asmpthings.entity.custom.CubeBossEntity;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
 import net.maximlvr.asmpthings.item.ModItems;
 import net.maximlvr.asmpthings.network.ModNetworking;
+import net.maximlvr.asmpthings.stats.ModStats;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -47,6 +48,7 @@ public class AsmpThingsMod {
 
         ModItems.register(modEventBus);
         ModDataComponents.register(modEventBus);
+        ModStats.register(modEventBus);
         ModNetworking.register(modEventBus);
 
         ModBlocks.register(modEventBus);

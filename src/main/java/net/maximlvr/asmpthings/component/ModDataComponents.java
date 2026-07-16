@@ -30,6 +30,13 @@ public class ModDataComponents {
                             .networkSynchronized(ByteBufCodecs.VAR_INT)
             );
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> SCRATCH_STAT_COUNTED =
+            DATA_COMPONENTS.registerComponentType("scratch_stat_counted",
+                    builder -> builder
+                            .persistent(Codec.BOOL)
+                            .networkSynchronized(ByteBufCodecs.BOOL)
+            );
+
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> ROLE_CARD_TYPE =
             DATA_COMPONENTS.registerComponentType("role_card_type",
                     builder -> builder

@@ -86,6 +86,7 @@ public class ModItems {
                             .stacksTo(1)
                             .component(ModDataComponents.SCRATCH_DATA.get(), "")
                             .component(ModDataComponents.SCRATCH_PRIZE.get(), -1)
+                            .component(ModDataComponents.SCRATCH_STAT_COUNTED.get(), false)
             ));
 
     public static void register(IEventBus eventBus) {
