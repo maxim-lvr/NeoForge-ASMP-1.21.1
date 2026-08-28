@@ -21,6 +21,7 @@ public class CubeBossSwordEntity extends Entity {
     public static final int ACTIVE_TICKS = 4;
     public static final int TOTAL_TICKS = WARNING_TICKS + ACTIVE_TICKS;
     public static final float DAMAGE = 6.0F;
+    private static final double HITBOX_HEIGHT = 0.6D;
 
     private static final EntityDataAccessor<Integer> DATA_AGE =
             SynchedEntityData.defineId(CubeBossSwordEntity.class, EntityDataSerializers.INT);
@@ -111,11 +112,11 @@ public class CubeBossSwordEntity extends Entity {
         BlockPos blockPos = this.blockPosition();
         AABB hitBox = new AABB(
                 blockPos.getX(), this.getY() - 0.05D, blockPos.getZ(),
-                blockPos.getX() + 1.0D, this.getY() + 2.2D, blockPos.getZ() + 1.0D
+                blockPos.getX() + 1.0D, this.getY() + HITBOX_HEIGHT, blockPos.getZ() + 1.0D
         );
 
         for (Player player : this.level().getEntitiesOfClass(Player.class, hitBox)) {
-            if (!player.onGround() || this.damagedPlayers.contains(player.getUUID())) {
+            if (this.damagedPlayers.contains(player.getUUID())) {
                 continue;
             }
 
@@ -123,7 +124,7 @@ public class CubeBossSwordEntity extends Entity {
                 continue;
             }
 
-            if (Math.abs(player.getY() - this.getY()) > 1.1D) {
+            if (player.getY() > this.getY() + HITBOX_HEIGHT) {
                 continue;
             }
 

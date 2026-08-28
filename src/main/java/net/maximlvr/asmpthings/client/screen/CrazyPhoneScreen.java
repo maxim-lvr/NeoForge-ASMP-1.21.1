@@ -9,7 +9,6 @@ import net.maximlvr.asmpthings.integration.camera.CrazyPhoneCameraHelper;
 import net.maximlvr.asmpthings.network.payload.AddCrazyPhoneContactByNumberPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneCameraAlbumActionPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneCameraPhotoActionPayload;
-import net.maximlvr.asmpthings.network.payload.AddCrazyPhonePhotoPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneContactResultPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneMessageResultPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhonePhotoResultPayload;
@@ -124,8 +123,6 @@ public class CrazyPhoneScreen extends Screen {
     private EditBox passwordField;
     private EditBox contactNameField;
     private EditBox contactNumberField;
-    private EditBox photoTitleField;
-    private EditBox photoTextureField;
     private EditBox albumNameField;
     private EditBox unlockPasswordField;
     private EditBox messageField;
@@ -580,33 +577,6 @@ public class CrazyPhoneScreen extends Screen {
         sendButton.active = !selectedUploadPhotoIndexes.isEmpty();
         sendButton.setFGColor(TEXT_PRIMARY);
         addRenderableWidget(sendButton);
-    }
-
-    private void initAddPhoto() {
-        int phoneX = (this.width - PHONE_WIDTH) / 2;
-        int phoneY = (this.height - PHONE_HEIGHT) / 2;
-        int inputX = phoneX + scale(18);
-        int inputWidth = scale(86);
-
-        photoTitleField = new EditBox(this.font, inputX, phoneY + scale(66), inputWidth, scale(16), Component.literal("Nom"));
-        photoTitleField.setMaxLength(32);
-        photoTitleField.setTextColor(TEXT_PRIMARY);
-        photoTitleField.setTextColorUneditable(TEXT_PRIMARY);
-        addRenderableWidget(photoTitleField);
-
-        photoTextureField = new EditBox(this.font, inputX, phoneY + scale(101), inputWidth, scale(16), Component.literal("Texture"));
-        photoTextureField.setMaxLength(128);
-        photoTextureField.setTextColor(TEXT_PRIMARY);
-        photoTextureField.setTextColorUneditable(TEXT_PRIMARY);
-        addRenderableWidget(photoTextureField);
-
-        Button addButton = Button.builder(Component.literal("Ajouter"), button -> addCustomPhoto())
-                .bounds(inputX, phoneY + scale(132), inputWidth, scale(18))
-                .build();
-        addButton.setFGColor(TEXT_PRIMARY);
-        addRenderableWidget(addButton);
-
-        addSystemButtons(phoneX, phoneY);
     }
 
     private void initSendPhoto() {
@@ -1133,49 +1103,6 @@ public class CrazyPhoneScreen extends Screen {
         rebuildWidgets();
     }
 
-    private void addCustomPhoto() {
-        String title = photoTitleField == null ? "" : photoTitleField.getValue().trim();
-        String texture = photoTextureField == null ? "" : photoTextureField.getValue().trim();
-
-        if (title.isEmpty() || texture.isEmpty()) {
-            photoStatus = "Image introuvable";
-            photoStatusColor = TEXT_ERROR;
-            return;
-        }
-
-        String normalizedTexture = normalizePhotoTexture(texture);
-
-        if (ResourceLocation.tryParse(normalizedTexture) == null) {
-            photoStatus = "Image introuvable";
-            photoStatusColor = TEXT_ERROR;
-            return;
-        }
-
-        addPhotoLocally(title, normalizedTexture, "custom");
-        PacketDistributor.sendToServer(new AddCrazyPhonePhotoPayload(mainHand, title, normalizedTexture, "custom"));
-        page = Page.ALBUMS;
-        albumScrollOffset = 0;
-        rebuildWidgets();
-    }
-
-    private String normalizePhotoTexture(String texture) {
-        if (texture.contains(":")) {
-            return texture;
-        }
-
-        String path = texture;
-
-        if (!path.startsWith("textures/")) {
-            path = "textures/screens/" + path;
-        }
-
-        if (!path.endsWith(".png")) {
-            path = path + ".png";
-        }
-
-        return "asmpthingsmod:" + path;
-    }
-
     public void handleContactResult(CrazyPhoneContactResultPayload payload) {
         contactStatus = payload.message();
         contactStatusColor = payload.success() ? TEXT_SUCCESS : TEXT_ERROR;
@@ -1449,18 +1376,6 @@ public class CrazyPhoneScreen extends Screen {
         contact.putString("number", number);
         contacts.add(contact);
         tag.put("contacts", contacts);
-        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-    }
-
-    private void addPhotoLocally(String title, String texture, String type) {
-        CompoundTag tag = getTag();
-        ListTag photos = tag.getList("photos", 10);
-        CompoundTag photo = new CompoundTag();
-        photo.putString("title", title);
-        photo.putString("texture", texture);
-        photo.putString("type", type);
-        photos.add(photo);
-        tag.put("photos", photos);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
     }
 
@@ -2066,10 +1981,6 @@ public class CrazyPhoneScreen extends Screen {
         return CrazyPhoneCameraHelper.getCameraPhotoCount(minecraft.level.registryAccess(), stack);
     }
 
-    private int getTotalPhotoCount() {
-        return getPhotos().size() + getCameraPhotoCount();
-    }
-
     private List<ItemStack> getCameraAlbums() {
         if (minecraft == null || minecraft.level == null) {
             return List.of();
@@ -2100,24 +2011,6 @@ public class CrazyPhoneScreen extends Screen {
         }
 
         return groups;
-    }
-
-    private List<ItemStack> getSelectedCameraAlbumImages() {
-        if (minecraft == null || minecraft.level == null) {
-            return List.of();
-        }
-
-        if (selectedCameraAlbumIndex == ALL_PHOTOS_ALBUM_INDEX) {
-            return CrazyPhoneCameraHelper.getCameraImages(minecraft.level.registryAccess(), stack);
-        }
-
-        List<ItemStack> albums = getCameraAlbums();
-
-        if (selectedCameraAlbumIndex < 0 || selectedCameraAlbumIndex >= albums.size()) {
-            return List.of();
-        }
-
-        return CrazyPhoneCameraHelper.getCameraImagesFromAlbum(minecraft.level.registryAccess(), albums.get(selectedCameraAlbumIndex));
     }
 
     private List<CameraPhotoEntry> getSelectedCameraPhotoEntries() {
@@ -2207,14 +2100,6 @@ public class CrazyPhoneScreen extends Screen {
         return data == null ? "" : data.getId().toString();
     }
 
-    private String getCameraAlbumName(ItemStack album, int albumIndex) {
-        if (album.has(DataComponents.CUSTOM_NAME)) {
-            return album.getHoverName().getString();
-        }
-
-        return "Album " + (albumIndex + 1);
-    }
-
     private String getSelectedCameraAlbumTitle() {
         if (selectedCameraAlbumIndex == ALL_PHOTOS_ALBUM_INDEX) {
             return "Toutes mes photos";
@@ -2231,18 +2116,6 @@ public class CrazyPhoneScreen extends Screen {
         }
 
         return "Album";
-    }
-
-    private int getCameraAlbumPhotoCount(ItemStack album) {
-        if (minecraft == null || minecraft.level == null || album.isEmpty()) {
-            return 0;
-        }
-
-        return CrazyPhoneCameraHelper.getAlbumPhotoCount(minecraft.level.registryAccess(), album);
-    }
-
-    private int getCameraAlbumCapacity() {
-        return CrazyPhoneCameraHelper.getAlbumCapacity();
     }
 
     private void createCameraAlbum() {
@@ -2288,15 +2161,6 @@ public class CrazyPhoneScreen extends Screen {
         }
 
         minecraft.setScreen(new UploadedPhotoScreen(this, photo));
-    }
-
-    private void renderAddPhoto(GuiGraphics guiGraphics, int phoneX, int phoneY) {
-        drawText(guiGraphics, "Nom", phoneX + scale(18), phoneY + scale(55), TEXT_PRIMARY);
-        drawText(guiGraphics, "Texture", phoneX + scale(18), phoneY + scale(90), TEXT_PRIMARY);
-
-        if (!photoStatus.isEmpty()) {
-            drawCenteredText(guiGraphics, trimToWidth(photoStatus, scale(86)), phoneX + PHONE_WIDTH / 2, phoneY + scale(158), photoStatusColor);
-        }
     }
 
     private void renderSendPhoto(GuiGraphics guiGraphics, int phoneX, int phoneY) {
@@ -2436,33 +2300,6 @@ public class CrazyPhoneScreen extends Screen {
         return phoneY + PHOTO_GRID_BOTTOM;
     }
 
-    private void renderCameraAlbumGrid(GuiGraphics guiGraphics, List<ItemStack> albums, int phoneX, int y, int listTop, int listBottom) {
-        for (int i = 0; i < albums.size(); i++) {
-            int column = i % CAMERA_GRID_COLUMNS;
-            int row = i / CAMERA_GRID_COLUMNS;
-            int albumX = getGridItemX(phoneX, column);
-            int albumY = y + row * CAMERA_GRID_CELL;
-
-            if (albumY + CAMERA_GRID_CELL >= listTop && albumY <= listBottom) {
-                renderCameraPhotoItem(guiGraphics, albums.get(i), albumX, albumY);
-            }
-        }
-    }
-
-    private void renderUploadAlbumGrid(GuiGraphics guiGraphics, List<UploadAlbumEntry> albums, int phoneX, int y, int listTop, int listBottom) {
-        for (int i = 0; i < albums.size(); i++) {
-            int column = i % CAMERA_GRID_COLUMNS;
-            int row = i / CAMERA_GRID_COLUMNS;
-            int albumX = getGridItemX(phoneX, column);
-            int albumY = y + row * CAMERA_GRID_CELL;
-
-            if (albumY + CAMERA_GRID_CELL >= listTop && albumY <= listBottom) {
-                guiGraphics.blit(ALBUM_ICON, albumX + 1, albumY + 1, PHOTO_THUMBNAIL_SIZE, PHOTO_THUMBNAIL_SIZE, 0, 0, 52, 62, 52, 62);
-                drawCenteredText(guiGraphics, trimToWidth(albums.get(i).name(), scale(18)), albumX + PHOTO_THUMBNAIL_SIZE / 2, albumY + PHOTO_THUMBNAIL_SIZE, TEXT_PRIMARY);
-            }
-        }
-    }
-
     private void renderAlbumRow(GuiGraphics guiGraphics, String name, String count, int phoneX, int y, boolean editing) {
         if (!editing) {
             drawText(guiGraphics, trimToWidth(name, scale(78)), phoneX + scale(18), y + scale(2), TEXT_PRIMARY);
@@ -2470,19 +2307,6 @@ public class CrazyPhoneScreen extends Screen {
         }
 
         drawListSeparator(guiGraphics, phoneX, y + ALBUM_ROW_HEIGHT - scale(2));
-    }
-
-    private void renderPhotoRow(GuiGraphics guiGraphics, PhotoEntry photo, int x, int y) {
-        ResourceLocation texture = ResourceLocation.tryParse(photo.texture());
-
-        if (texture != null) {
-            guiGraphics.blit(texture, x, y + scale(2), scale(24), scale(18), 0, 0, 64, 64, 64, 64);
-        } else {
-            guiGraphics.fill(x, y + scale(2), x + scale(24), y + scale(20), 0xFF324154);
-        }
-
-        drawText(guiGraphics, trimToWidth(photo.title(), scale(54)), x + scale(30), y + scale(4), TEXT_PRIMARY);
-        drawText(guiGraphics, trimToWidth(photo.type(), scale(54)), x + scale(30), y + scale(15), TEXT_SECONDARY);
     }
 
     private void renderSelectedSlot(GuiGraphics guiGraphics, int x, int y) {

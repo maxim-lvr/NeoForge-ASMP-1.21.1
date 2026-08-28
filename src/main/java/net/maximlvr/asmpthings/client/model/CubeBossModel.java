@@ -152,6 +152,12 @@ public class CubeBossModel<T extends CubeBossEntity> extends HierarchicalModel<T
             this.animate(entity.runCycleAnimationState, CubeBossAnimations.RUN_CYCLE, ageInTicks);
         } else if (entity.getAnimationMode() == CubeBossEntity.ANIMATION_ARROW_UP) {
             this.animate(entity.arrowUpAnimationState, CubeBossAnimations.ARROW_UP, ageInTicks);
+        } else if (entity.getAnimationMode() == CubeBossEntity.ANIMATION_ARROW_DOWN) {
+            this.animate(entity.arrowDownAnimationState, CubeBossAnimations.ARROW_DOWN, ageInTicks);
+        } else if (entity.getAnimationMode() == CubeBossEntity.ANIMATION_ARROW_LEFT) {
+            this.animate(entity.arrowLeftAnimationState, CubeBossAnimations.ARROW_LEFT, ageInTicks);
+        } else if (entity.getAnimationMode() == CubeBossEntity.ANIMATION_ARROW_RIGHT) {
+            this.animate(entity.arrowRightAnimationState, CubeBossAnimations.ARROW_RIGHT, ageInTicks);
         }
     }
 }

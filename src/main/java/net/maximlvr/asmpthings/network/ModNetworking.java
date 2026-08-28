@@ -13,7 +13,6 @@ import net.maximlvr.asmpthings.block.entity.CardReaderBlockEntity;
 import net.maximlvr.asmpthings.integration.camera.CrazyPhoneCameraHelper;
 import net.maximlvr.asmpthings.item.custom.BlueCardItem;
 import net.maximlvr.asmpthings.item.ModItems;
-import net.maximlvr.asmpthings.network.payload.AddCrazyPhonePhotoPayload;
 import net.maximlvr.asmpthings.network.payload.AddCrazyPhoneContactByNumberPayload;
 import net.maximlvr.asmpthings.network.payload.BankActionPayload;
 import net.maximlvr.asmpthings.network.payload.BankSyncPayload;
@@ -383,42 +382,6 @@ public class ModNetworking {
 
                         CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
                         tag.putBoolean("locked", payload.locked());
-                        stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-                    });
-                }
-        );
-
-        registrar.playToServer(
-                AddCrazyPhonePhotoPayload.TYPE,
-                AddCrazyPhonePhotoPayload.STREAM_CODEC,
-                (payload, context) -> {
-                    context.enqueueWork(() -> {
-                        var player = context.player();
-                        ItemStack stack = payload.mainHand()
-                                ? player.getMainHandItem()
-                                : player.getOffhandItem();
-
-                        if (!ModItems.isCrazyPhone(stack)) {
-                            return;
-                        }
-
-                        String title = sanitize(payload.title(), 32);
-                        String texture = sanitize(payload.texture(), 512);
-                        String type = sanitize(payload.photoType(), 16);
-
-                        if (title.isEmpty() || texture.isEmpty()) {
-                            return;
-                        }
-
-                        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-                        ListTag photos = tag.getList("photos", 10);
-
-                        CompoundTag photo = new CompoundTag();
-                        photo.putString("title", title);
-                        photo.putString("texture", texture);
-                        photo.putString("type", type.isEmpty() ? "custom" : type);
-                        photos.add(photo);
-                        tag.put("photos", photos);
                         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
                     });
                 }
@@ -872,13 +835,18 @@ public class ModNetworking {
     }
 
     private static String sanitizeDigits(String value, int maxLength) {
-        String sanitized = sanitize(value, maxLength).replaceAll("[^0-9]", "");
+        String trimmed = value == null ? "" : value.trim();
+        StringBuilder sanitized = new StringBuilder(Math.min(trimmed.length(), maxLength));
 
-        if (sanitized.length() <= maxLength) {
-            return sanitized;
+        for (int i = 0; i < trimmed.length() && sanitized.length() < maxLength; i++) {
+            char character = trimmed.charAt(i);
+
+            if (Character.isDigit(character)) {
+                sanitized.append(character);
+            }
         }
 
-        return sanitized.substring(0, maxLength);
+        return sanitized.toString();
     }
 
     private static String sanitizePhoneNumber(String value) {
@@ -1455,18 +1423,6 @@ public class ModNetworking {
         return null;
     }
 
-    private static ItemStack findPhoneStackByNumber(ServerPlayer requester, String number) {
-        for (ServerPlayer player : requester.server.getPlayerList().getPlayers()) {
-            ItemStack stack = findPhoneStackInInventory(player, number);
-
-            if (!stack.isEmpty()) {
-                return stack;
-            }
-        }
-
-        return null;
-    }
-
     private static PhoneStackRef findPhoneRefByNumber(ServerPlayer requester, String number) {
         for (ServerPlayer player : requester.server.getPlayerList().getPlayers()) {
             PhoneStackRef ref = findPhoneRefInInventory(player, number);
@@ -1495,24 +1451,6 @@ public class ModNetworking {
         }
 
         return findPhoneInStacks(player, number, inventory.armor);
-    }
-
-    private static ItemStack findPhoneStackInInventory(ServerPlayer player, String number) {
-        Inventory inventory = player.getInventory();
-
-        ItemStack stack = findPhoneStackInStacks(number, inventory.items);
-
-        if (!stack.isEmpty()) {
-            return stack;
-        }
-
-        stack = findPhoneStackInStacks(number, inventory.offhand);
-
-        if (!stack.isEmpty()) {
-            return stack;
-        }
-
-        return findPhoneStackInStacks(number, inventory.armor);
     }
 
     private static PhoneStackRef findPhoneRefInInventory(ServerPlayer player, String number) {

@@ -4,6 +4,7 @@ import de.maxhenkel.camera.ImageData;
 import de.maxhenkel.camera.ImageTools;
 import de.maxhenkel.camera.Main;
 import de.maxhenkel.camera.net.PacketManager;
+import net.maximlvr.asmpthings.AsmpThingsMod;
 import net.maximlvr.asmpthings.integration.camera.CrazyPhoneCameraHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -56,7 +57,7 @@ public abstract class CameraPacketManagerMixin {
             ImageTools.saveImage(player, uuid, image);
             player.getServer().submitAsync(() -> createImageItem(player, uuid));
         } catch (IOException exception) {
-            exception.printStackTrace();
+            AsmpThingsMod.LOGGER.error("Impossible de sauvegarder la photo CrazyPhone {}", uuid, exception);
         }
     }
 

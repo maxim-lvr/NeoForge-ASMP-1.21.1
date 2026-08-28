@@ -66,6 +66,14 @@ public class ModBlocks {
                     .sound(SoundType.METAL))
     );
 
+    public static final DeferredBlock<Block> CUBE_BOSS_STELE = registerBlock(
+            "cube_boss_stele",
+            () -> new CubeBossSteleBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.POLISHED_DEEPSLATE)
+                    .strength(5.0F, 12.0F)
+                    .lightLevel(state -> 6)
+                    .sound(SoundType.DEEPSLATE))
+    );
+
     private static <T extends Block> DeferredBlock<T> registerBlock(String name, Supplier<T> block) {
         DeferredBlock<T> toReturn = BLOCKS.register(name, block);
         registerBlockItem(name, toReturn);

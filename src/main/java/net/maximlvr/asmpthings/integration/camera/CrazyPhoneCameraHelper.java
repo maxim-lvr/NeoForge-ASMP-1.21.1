@@ -87,7 +87,6 @@ public final class CrazyPhoneCameraHelper {
         HolderLookup.Provider registries = player.level().registryAccess();
         CompoundTag tag = phone.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         List<ItemStack> albums = getOrCreateCameraAlbums(registries, tag);
-        UploadTarget uploadTarget = getUploadTarget(player);
 
         for (ItemStack album : albums) {
             if (tryAddImageToAlbum(player, album, image)) {
@@ -186,37 +185,6 @@ public final class CrazyPhoneCameraHelper {
         return true;
     }
 
-    public static boolean insertImageIntoPhone(ServerPlayer player, ItemStack phone, ItemStack image) {
-        if (phone.isEmpty() || !ModItems.isCrazyPhone(phone) || image.isEmpty() || !(image.getItem() instanceof ImageItem)) {
-            return false;
-        }
-
-        HolderLookup.Provider registries = player.level().registryAccess();
-        CompoundTag tag = phone.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        List<ItemStack> albums = getOrCreateCameraAlbums(registries, tag);
-
-        for (ItemStack album : albums) {
-            if (tryAddImageToAlbum(player, album, image)) {
-                saveCameraAlbums(registries, tag, albums);
-                phone.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-                syncHeldPhone(player, phone, tag);
-                return true;
-            }
-        }
-
-        ItemStack newAlbum = new ItemStack(Main.ALBUM.get());
-
-        if (!tryAddImageToAlbum(player, newAlbum, image)) {
-            return false;
-        }
-
-        albums.add(newAlbum);
-        saveCameraAlbums(registries, tag, albums);
-        phone.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        syncHeldPhone(player, phone, tag);
-        return true;
-    }
-
     public static ItemStack getCameraImageAt(HolderLookup.Provider registries, ItemStack phone, int albumIndex, int imageIndex) {
         List<ItemStack> albums = getCameraAlbums(registries, phone);
 
@@ -289,27 +257,9 @@ public final class CrazyPhoneCameraHelper {
         return count;
     }
 
-    public static int getAlbumPhotoCount(HolderLookup.Provider registries, ItemStack album) {
-        return getCameraImagesFromAlbum(registries, album).size();
-    }
-
-    public static int getAlbumCapacity() {
-        return AlbumInventory.SIZE;
-    }
-
     public static List<ItemStack> getCameraAlbums(HolderLookup.Provider registries, ItemStack phone) {
         CompoundTag tag = phone.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         return readCameraAlbums(registries, tag);
-    }
-
-    public static List<ItemStack> getCameraImages(HolderLookup.Provider registries, ItemStack phone) {
-        List<ItemStack> images = new ArrayList<>();
-
-        for (ItemStack album : getCameraAlbums(registries, phone)) {
-            images.addAll(getCameraImagesFromAlbum(registries, album));
-        }
-
-        return images;
     }
 
     public static List<ItemStack> getCameraImagesFromAlbum(HolderLookup.Provider registries, ItemStack album) {
@@ -348,16 +298,6 @@ public final class CrazyPhoneCameraHelper {
         }
 
         return ItemStack.EMPTY;
-    }
-
-    private static ItemStack getCameraAlbum(HolderLookup.Provider registries, ItemStack phone) {
-        CompoundTag tag = phone.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-
-        if (!tag.contains(TAG_CAMERA_ALBUM)) {
-            return ItemStack.EMPTY;
-        }
-
-        return parseSavedItem(registries, tag.getCompound(TAG_CAMERA_ALBUM));
     }
 
     private static List<ItemStack> getOrCreateCameraAlbums(HolderLookup.Provider registries, CompoundTag tag) {
@@ -543,10 +483,6 @@ public final class CrazyPhoneCameraHelper {
         } else if (phone == player.getOffhandItem()) {
             PacketDistributor.sendToPlayer(player, new CrazyPhoneSyncPayload(false, tag.copy()));
         }
-    }
-
-    public static boolean hasCameraPhotos(HolderLookup.Provider registries, ItemStack phone) {
-        return getCameraPhotoCount(registries, phone) > 0;
     }
 
     private record UploadTarget(int groupId, int remaining, long expiresAt) {

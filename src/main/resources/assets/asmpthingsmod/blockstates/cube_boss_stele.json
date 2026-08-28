@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "asmpthingsmod:block/cube_boss_stele"
+    },
+    "facing=east": {
+      "model": "asmpthingsmod:block/cube_boss_stele",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "asmpthingsmod:block/cube_boss_stele",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "asmpthingsmod:block/cube_boss_stele",
+      "y": 270
+    }
+  }
+}
