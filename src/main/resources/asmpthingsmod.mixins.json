@@ -4,9 +4,20 @@
   "package": "net.maximlvr.asmpthings.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "StasisEntityMixin",
+    "StasisLivingMixin",
+    "StasisPlayerMixin",
+    "AsmpTestInteractionMixin",
     "CameraPacketManagerMixin"
   ],
   "client": [
+    "ChargedGunPoseMixin",
+    "AsmpTestSprintMixin",
+    "AsmpTestCameraMixin",
+    "AsmpTestLookMixin",
+    "ArmiBossCameraMixin",
+    "ArmiBossLookMixin",
+    "ArmiBossViewMixin",
     "CameraImageTakerMixin",
     "CameraClientEventsMixin"
   ],

@@ -13,6 +13,10 @@ public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES =
             DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, AsmpThingsMod.MOD_ID);
 
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ArmiPlatformBlockEntity>> ARMI_PLATFORM =
+            BLOCK_ENTITY_TYPES.register("armi_platform", () -> BlockEntityType.Builder.of(ArmiPlatformBlockEntity::new,
+                    ModBlocks.ARMI_PLATFORM_RED.get(), ModBlocks.ARMI_PLATFORM_BLUE.get()).build(null));
+
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CardReaderBlockEntity>> CARD_READER =
             BLOCK_ENTITY_TYPES.register("card_reader",
                     () -> BlockEntityType.Builder.of(CardReaderBlockEntity::new, ModBlocks.CARD_READER.get()).build(null));

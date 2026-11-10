@@ -6,6 +6,7 @@ import net.maximlvr.asmpthings.block.ModBlocks;
 import net.maximlvr.asmpthings.component.ModDataComponents;
 import net.maximlvr.asmpthings.command.BackpackInspectCommand;
 import net.maximlvr.asmpthings.entity.ModEntities;
+import net.maximlvr.asmpthings.entity.custom.ArmiBossEntity;
 import net.maximlvr.asmpthings.entity.custom.CubeBossEntity;
 import net.maximlvr.asmpthings.integration.sophisticated.BackpackInspectionInventory;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
@@ -47,11 +48,16 @@ public class AsmpThingsMod {
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModEntities.register(modEventBus);
+        net.maximlvr.asmpthings.effect.ModEffects.EFFECTS.register(modEventBus);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
     private void registerAttributes(EntityAttributeCreationEvent event) {
+        event.put(ModEntities.UNDERTAKER.get(), net.maximlvr.asmpthings.entity.custom.UndertakerEntity.createAttributes().build());
+        event.put(ModEntities.GOLEM.get(), net.maximlvr.asmpthings.entity.custom.GolemEntity.createAttributes().build());
+        event.put(ModEntities.DRONE.get(), net.maximlvr.asmpthings.entity.custom.DroneEntity.createAttributes().build());
+        event.put(ModEntities.ARMI_BOSS.get(), ArmiBossEntity.createAttributes().build());
         event.put(ModEntities.CUBE_BOSS.get(), CubeBossEntity.createAttributes().build());
     }
 }

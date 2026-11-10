@@ -44,6 +44,14 @@ public class ModDataComponents {
                             .networkSynchronized(ByteBufCodecs.INT)
             );
 
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> GUN_AMMO =
+            DATA_COMPONENTS.registerComponentType("gun_ammo", builder -> builder
+                    .persistent(Codec.intRange(0, Integer.MAX_VALUE)).networkSynchronized(ByteBufCodecs.VAR_INT));
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Long>> GUN_NEXT_REFILL =
+            DATA_COMPONENTS.registerComponentType("gun_next_refill", builder -> builder
+                    .persistent(Codec.LONG).networkSynchronized(ByteBufCodecs.VAR_LONG));
+
     public static void register(IEventBus eventBus) {
         DATA_COMPONENTS.register(eventBus);
     }

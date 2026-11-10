@@ -1,4 +1,18 @@
 {
+  "entity.asmpthingsmod.undertaker": "Undertaker",
+  "item.asmpthingsmod.undertaker_spawn_egg": "Undertaker Spawn Egg",
+ "entity.asmpthingsmod.golem": "Cogwork Golem",
+ "item.asmpthingsmod.golem_spawn_egg": "Cogwork Golem Spawn Egg",
+ "entity.asmpthingsmod.kraber_sphere": "Kraber Sphere",
+ "effect.asmpthingsmod.stasis": "Stasis",
+ "item.asmpthingsmod.kraber": "Kraber",
+ "item.asmpthingsmod.ultrakill_revolver": "Ultrakill Revolver",
+ "entity.asmpthingsmod.drone": "Drone",
+ "item.asmpthingsmod.drone_spawn_egg": "Drone Spawn Egg",
+ "item.asmpthingsmod.revolver": "Revolver",
+ "tooltip.asmpthingsmod.gun_ammo": "Ammo: %s/%s",
+ "block.asmpthingsmod.armi_platform_red": "Armi Red Platform",
+ "block.asmpthingsmod.armi_platform_blue": "Armi Blue Platform",
  "item.asmpthingsmod.corona": "Corona",
  "item.asmpthingsmod.desperados": "Desperados",
  "item.asmpthingsmod.huit_six": "8.6",
@@ -28,6 +42,7 @@
  "block.asmpthingsmod.cube_boss_stele": "Cube Boss Stele",
 
  "entity.asmpthingsmod.cube_boss": "Cube Boss",
+ "entity.asmpthingsmod.armi_boss": "Armi Boss",
 
  "stat.asmpthingsmod.scratch_tickets_scratched": "Tickets grattes",
  "stat.asmpthingsmod.crazy_phone_messages_sent": "Messages CrazyPhone envoyes",

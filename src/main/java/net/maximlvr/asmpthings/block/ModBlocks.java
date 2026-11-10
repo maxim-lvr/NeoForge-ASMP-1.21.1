@@ -19,6 +19,15 @@ public class ModBlocks {
 
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(AsmpThingsMod.MOD_ID);
 
+    public static final DeferredBlock<ArmiPlatformBlock> ARMI_PLATFORM_RED = registerBlock("armi_platform_red",
+            () -> new ArmiPlatformBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_WOOL)
+                    .noOcclusion().dynamicShape().isSuffocating((state, level, pos) -> false)
+                    .isViewBlocking((state, level, pos) -> false), 1));
+    public static final DeferredBlock<ArmiPlatformBlock> ARMI_PLATFORM_BLUE = registerBlock("armi_platform_blue",
+            () -> new ArmiPlatformBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.BLUE_WOOL)
+                    .noOcclusion().dynamicShape().isSuffocating((state, level, pos) -> false)
+                    .isViewBlocking((state, level, pos) -> false), 2));
+
     public static final DeferredBlock<Block> DEEPSLATE_PORTAL = registerBlock(
             "deepslate_portal",
             () -> new DeepslatePortalBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.DEEPSLATE)

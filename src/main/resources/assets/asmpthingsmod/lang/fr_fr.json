@@ -1,0 +1,14 @@
+{
+  "entity.asmpthingsmod.undertaker": "Undertaker",
+  "item.asmpthingsmod.undertaker_spawn_egg": "Oeuf d'Undertaker",
+  "entity.asmpthingsmod.golem": "Golem mecanique",
+  "item.asmpthingsmod.golem_spawn_egg": "Oeuf de golem mecanique",
+  "entity.asmpthingsmod.kraber_sphere": "Sphere du Kraber",
+  "effect.asmpthingsmod.stasis": "Stase",
+  "item.asmpthingsmod.kraber": "Kraber",
+  "item.asmpthingsmod.ultrakill_revolver": "Revolver Ultrakill",
+  "entity.asmpthingsmod.drone": "Drone",
+  "item.asmpthingsmod.drone_spawn_egg": "Oeuf de drone",
+  "item.asmpthingsmod.revolver": "Revolver",
+  "tooltip.asmpthingsmod.gun_ammo": "Balles : %s/%s"
+}

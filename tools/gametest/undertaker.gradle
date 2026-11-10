@@ -1,0 +1,13 @@
+// node tools/gametest/undertaker-template.cjs
+// ./gradlew runGameTestServer --init-script tools/gametest/undertaker.gradle --project-cache-dir /tmp/undertaker-cache
+allprojects {
+    layout.buildDirectory = file('/tmp/undertaker-build')
+    plugins.withId('net.neoforged.moddev') {
+        sourceSets.main.java.srcDir('tools/gametest/src')
+        sourceSets.main.resources.srcDir('/tmp/undertaker-resources')
+    }
+    afterEvaluate {
+        neoForge.runs.gameTestServer.gameDirectory = file('/tmp/undertaker-run')
+        neoForge.runs.gameTestServer.logLevel = org.slf4j.event.Level.INFO
+    }
+}

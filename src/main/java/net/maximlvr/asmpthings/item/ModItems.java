@@ -6,6 +6,8 @@ import net.maximlvr.asmpthings.item.custom.BlueCardItem;
 import net.maximlvr.asmpthings.item.custom.CrazyPhoneItem;
 import net.maximlvr.asmpthings.item.custom.ScratchTicketItem;
 import net.maximlvr.asmpthings.item.custom.WeatherStaff;
+import net.maximlvr.asmpthings.item.custom.GunItem;
+import net.maximlvr.asmpthings.item.custom.GunSettings;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
@@ -14,6 +16,28 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(AsmpThingsMod.MOD_ID);
+
+    public static final DeferredItem<Item> UNDERTAKER_SPAWN_EGG = ITEMS.register("undertaker_spawn_egg",
+            () -> new net.neoforged.neoforge.common.DeferredSpawnEggItem(
+                    net.maximlvr.asmpthings.entity.ModEntities.UNDERTAKER, 0x302D35, 0x94785E, new Item.Properties()));
+
+    public static final DeferredItem<Item> GOLEM_SPAWN_EGG = ITEMS.register("golem_spawn_egg",
+            () -> new net.neoforged.neoforge.common.DeferredSpawnEggItem(
+                    net.maximlvr.asmpthings.entity.ModEntities.GOLEM, 0x715A38, 0xD6B75B, new Item.Properties()));
+
+    public static final DeferredItem<GunItem> REVOLVER = ITEMS.register("revolver",
+            () -> new GunItem(new Item.Properties(), new GunSettings(6, 100, 10, 6F, 48)));
+
+    public static final DeferredItem<GunItem> KRABER = ITEMS.register("kraber",
+            () -> new net.maximlvr.asmpthings.item.custom.KraberItem(new Item.Properties(), new GunSettings(6, 100, 10, 6F, 48)));
+
+    public static final DeferredItem<GunItem> ULTRAKILL_REVOLVER = ITEMS.register("ultrakill_revolver",
+            () -> new net.maximlvr.asmpthings.item.custom.ChargedGunItem(
+                    new Item.Properties(), new GunSettings(6, 100, 10, 6F, 48)));
+
+    public static final DeferredItem<Item> DRONE_SPAWN_EGG = ITEMS.register("drone_spawn_egg",
+            () -> new net.neoforged.neoforge.common.DeferredSpawnEggItem(
+                    net.maximlvr.asmpthings.entity.ModEntities.DRONE, 0x3B4249, 0xD62E27, new Item.Properties()));
 
     public static final DeferredItem<Item> CORONA = ITEMS.register("corona",
             () -> new Item(new Item.Properties().food(ModFoods.BEER)));

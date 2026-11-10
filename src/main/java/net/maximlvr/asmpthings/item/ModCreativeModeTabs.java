@@ -29,6 +29,12 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.GOLDEN_NUT);
                         output.accept(ModItems.COSMECOIN);
                         output.accept(ModItems.WEATHER_STAFF);
+                        output.accept(ModItems.REVOLVER);
+                        output.accept(ModItems.KRABER);
+                        output.accept(ModItems.ULTRAKILL_REVOLVER);
+                        output.accept(ModItems.DRONE_SPAWN_EGG);
+                        output.accept(ModItems.GOLEM_SPAWN_EGG);
+                        output.accept(ModItems.UNDERTAKER_SPAWN_EGG);
                         output.accept(ModItems.WEATHER_TANK);
                         output.accept(ModItems.CRAZY_PHONE_14);
                         output.accept(ModItems.CRAZY_PHONE_GOLDEN);
@@ -45,6 +51,8 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.KELETE_KALIFA);
                         output.accept(ModBlocks.SKELETE_SHOP_TEST);
                         output.accept(ModBlocks.CUBE_BOSS_STELE);
+                        output.accept(ModBlocks.ARMI_PLATFORM_RED);
+                        output.accept(ModBlocks.ARMI_PLATFORM_BLUE);
 
                     }).build());
 

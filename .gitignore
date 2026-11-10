@@ -51,3 +51,8 @@ repo/
 
 /src/crazythings-1.1.2-neoforge-1.21.1/
 /mods/
+
+# Fichiers JSON volumineux de génération de maps
+/src/main/resources/data/asmpthingsmod/msmp/generation_demo_chunks_seed42_deepslate.json
+/src/main/resources/data/asmpthingsmod/msmp/map_generation_final_seed42_10000x10000.json
+/src/main/resources/data/asmpthingsmod/msmp/map_noise_seed42_nord_ouest_5000x5000.json

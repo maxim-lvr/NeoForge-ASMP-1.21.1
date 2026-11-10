@@ -14,6 +14,10 @@ import net.maximlvr.asmpthings.integration.camera.CrazyPhoneCameraHelper;
 import net.maximlvr.asmpthings.item.custom.BlueCardItem;
 import net.maximlvr.asmpthings.item.ModItems;
 import net.maximlvr.asmpthings.network.payload.AddCrazyPhoneContactByNumberPayload;
+import net.maximlvr.asmpthings.network.payload.ArmiBossCinematicPayload;
+import net.maximlvr.asmpthings.network.payload.ArmiBossMovePayload;
+import net.maximlvr.asmpthings.network.payload.ArmiBossPathPayload;
+import net.maximlvr.asmpthings.entity.custom.ArmiBossEntity;
 import net.maximlvr.asmpthings.network.payload.BankActionPayload;
 import net.maximlvr.asmpthings.network.payload.BankSyncPayload;
 import net.maximlvr.asmpthings.network.payload.CrazyPhoneContactResultPayload;
@@ -78,6 +82,47 @@ public class ModNetworking {
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         var registrar = event.registrar("1");
+
+        registrar.playToClient(net.maximlvr.asmpthings.network.payload.GunLaserPayload.TYPE,
+                net.maximlvr.asmpthings.network.payload.GunLaserPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        net.maximlvr.asmpthings.client.GunLaserRenderer.add(payload)));
+
+        registrar.playToClient(net.maximlvr.asmpthings.network.payload.OpenBattlePreviewPayload.TYPE,
+                net.maximlvr.asmpthings.network.payload.OpenBattlePreviewPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        net.maximlvr.asmpthings.client.BattlePreviewScreen.open()));
+
+        registrar.playToClient(net.maximlvr.asmpthings.network.payload.AsmpTestRelayPayload.TYPE,
+                net.maximlvr.asmpthings.network.payload.AsmpTestRelayPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> net.maximlvr.asmpthings.client.AsmpTestClient.relay(payload)));
+
+        registrar.playToClient(net.maximlvr.asmpthings.network.payload.AsmpTestHotbarPayload.TYPE,
+                net.maximlvr.asmpthings.network.payload.AsmpTestHotbarPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> net.maximlvr.asmpthings.client.AsmpTestClient.hotbar(payload)));
+
+        registrar.playToClient(net.maximlvr.asmpthings.network.payload.AsmpTestViewPayload.TYPE,
+                net.maximlvr.asmpthings.network.payload.AsmpTestViewPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> net.maximlvr.asmpthings.client.AsmpTestClient.handle(payload)));
+        registrar.playToServer(net.maximlvr.asmpthings.network.payload.AsmpTestInputPayload.TYPE,
+                net.maximlvr.asmpthings.network.payload.AsmpTestInputPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) net.maximlvr.asmpthings.command.AsmpTestCommand.input(player, payload);
+                }));
+
+        registrar.playToClient(ArmiBossCinematicPayload.TYPE, ArmiBossCinematicPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        net.maximlvr.asmpthings.client.ArmiBossCinematicClient.handle(payload)));
+
+        registrar.playToClient(ArmiBossPathPayload.TYPE, ArmiBossPathPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        net.maximlvr.asmpthings.client.ArmiBossCinematicClient.handlePath(payload)));
+        registrar.playToServer(ArmiBossMovePayload.TYPE, ArmiBossMovePayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof ServerPlayer player) {
+                        ArmiBossEntity.handleMove(player, payload);
+                    }
+                }));
 
         registrar.playToServer(
                 ScratchTicketScratchPayload.TYPE,
