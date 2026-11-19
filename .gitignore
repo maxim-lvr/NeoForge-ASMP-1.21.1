@@ -56,3 +56,6 @@ repo/
 /src/main/resources/data/asmpthingsmod/msmp/generation_demo_chunks_seed42_deepslate.json
 /src/main/resources/data/asmpthingsmod/msmp/map_generation_final_seed42_10000x10000.json
 /src/main/resources/data/asmpthingsmod/msmp/map_noise_seed42_nord_ouest_5000x5000.json
+src/main/resources/data/asmpthingsmod/msmp/map_generation_final_seed42_1000x1000x1000.json
+.gitignore
+src/main/resources/data/asmpthingsmod/msmp/map_generation_final_seed42_10000x10000x1000.json
