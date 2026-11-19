@@ -29,7 +29,11 @@ public class AiNpcPersonalityStore {
     private NpcConfig config;
 
     public AiNpcPersonalityStore() {
-        this.configPath = FMLPaths.CONFIGDIR.get().resolve("asmpthings_ai_personality_persistent.json");
+        this(FMLPaths.CONFIGDIR.get());
+    }
+
+    public AiNpcPersonalityStore(Path directory) {
+        this.configPath = directory.resolve("asmpthings_ai_personality_persistent.json");
         load();
     }
 
@@ -46,6 +50,23 @@ public class AiNpcPersonalityStore {
     }
 
     public String buildSystemPrompt(String npcName) {
+        return buildSystemPrompt(npcName, true);
+    }
+
+    public boolean ensureVoiceNpc(String npcName) {
+        ensureConfig();
+        if (!config.npcs.containsKey(npcName)) {
+            config.npcs.put(npcName, createDefaultPersonality(npcName));
+            save();
+        }
+        return isAiNpcName(npcName);
+    }
+
+    public String buildVoiceSystemPrompt(String npcName) {
+        return buildSystemPrompt(npcName, false);
+    }
+
+    private String buildSystemPrompt(String npcName, boolean structuredReply) {
         ensureConfig();
 
         NpcPersonality personality = config.npcs.get(npcName);
@@ -94,15 +115,15 @@ public class AiNpcPersonalityStore {
                 - Les connaissances fixes ne doivent jamais être modifiées par toi.
                 - Évite les doublons.
 
-                Réponds uniquement avec un JSON valide.
-                Pas de markdown.
-                Pas de ```json.
+                %s
                 """.formatted(
                 npcName,
                 safe(personality.description),
                 safe(personality.personalityPrompt),
                 safe(personality.behaviorPrompt),
-                buildFixedKnowledgeText(personality.fixedKnowledge)
+                buildFixedKnowledgeText(personality.fixedKnowledge),
+                structuredReply ? "Réponds uniquement avec un JSON valide, sans markdown."
+                        : "Réponds à voix haute, naturellement en français, en une ou deux phrases. Ne lis jamais de JSON."
         );
     }
 

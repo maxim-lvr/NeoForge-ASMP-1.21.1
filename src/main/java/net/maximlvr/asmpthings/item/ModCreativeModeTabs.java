@@ -26,6 +26,8 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.HUIT_SIX);
                         output.accept(ModItems.KRONENBOURG);
                         output.accept(ModItems.CRAZY_COIN);
+                        output.accept(ModItems.PET_1);
+                        output.accept(ModItems.PET_2);
                         output.accept(ModItems.GOLDEN_NUT);
                         output.accept(ModItems.COSMECOIN);
                         output.accept(ModItems.WEATHER_STAFF);
@@ -51,6 +53,9 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.KELETE_KALIFA);
                         output.accept(ModBlocks.SKELETE_SHOP_TEST);
                         output.accept(ModBlocks.CUBE_BOSS_STELE);
+                        output.accept(ModBlocks.VOID_WINDOW);
+                        output.accept(ModBlocks.MOUNTAIN_WINDOW);
+                        output.accept(ModBlocks.REINFORCED_METAL_BLOCK);
                         output.accept(ModBlocks.ARMI_PLATFORM_RED);
                         output.accept(ModBlocks.ARMI_PLATFORM_BLUE);
 

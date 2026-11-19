@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "asmpthingsmod:block/reinforced_metal_block"
+  }
+}

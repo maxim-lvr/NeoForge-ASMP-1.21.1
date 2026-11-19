@@ -45,7 +45,11 @@ public class AiNpcGeneralMemoryStore {
     private final Map<String, GeneralMemory> memories = new HashMap<>();
 
     public AiNpcGeneralMemoryStore() {
-        this.savePath = FMLPaths.CONFIGDIR.get().resolve("asmpthings_ai_general_memory.json");
+        this(FMLPaths.CONFIGDIR.get());
+    }
+
+    public AiNpcGeneralMemoryStore(Path directory) {
+        this.savePath = directory.resolve("asmpthings_ai_general_memory.json");
         load();
     }
 

@@ -47,7 +47,11 @@ public class AiNpcPlayerMemoryStore {
     private final Map<String, Map<String, PlayerMemory>> memories = new HashMap<>();
 
     public AiNpcPlayerMemoryStore() {
-        this.savePath = FMLPaths.CONFIGDIR.get().resolve("asmpthings_ai_player_memory.json");
+        this(FMLPaths.CONFIGDIR.get());
+    }
+
+    public AiNpcPlayerMemoryStore(Path directory) {
+        this.savePath = directory.resolve("asmpthings_ai_player_memory.json");
         load();
     }
 
@@ -149,6 +153,7 @@ public class AiNpcPlayerMemoryStore {
         object.addProperty("playerName", memory.playerName);
         object.addProperty("relationState", memory.relationState);
         object.addProperty("interactions", memory.interactions);
+        object.addProperty("lastMessage", safe(memory.lastMessage));
         object.addProperty("playerSummary", safe(memory.playerSummary));
         object.add("knownFacts", toJsonArray(limitList(memory.knownFacts, PROMPT_MAX_KNOWN_FACTS)));
         object.add("recurringTopics", toJsonArray(limitList(memory.recurringTopics, PROMPT_MAX_RECURRING_TOPICS)));

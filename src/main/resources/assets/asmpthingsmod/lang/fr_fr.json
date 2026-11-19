@@ -1,4 +1,6 @@
 {
+  "block.asmpthingsmod.mountain_window": "Fenêtre sur les montagnes",
+  "block.asmpthingsmod.void_window": "Fenêtre sur le ciel",
   "entity.asmpthingsmod.undertaker": "Undertaker",
   "item.asmpthingsmod.undertaker_spawn_egg": "Oeuf d'Undertaker",
   "entity.asmpthingsmod.golem": "Golem mecanique",
@@ -10,5 +12,15 @@
   "entity.asmpthingsmod.drone": "Drone",
   "item.asmpthingsmod.drone_spawn_egg": "Oeuf de drone",
   "item.asmpthingsmod.revolver": "Revolver",
-  "tooltip.asmpthingsmod.gun_ammo": "Balles : %s/%s"
+  "tooltip.asmpthingsmod.gun_ammo": "Balles : %s/%s",
+  "item.asmpthingsmod.pet_1": "Pet 1",
+  "item.asmpthingsmod.pet_2": "Pet 2",
+  "entity.asmpthingsmod.pet_companion": "Compagnon volant",
+  "menu.asmpthingsmod.pet": "Compagnon",
+  "menu.asmpthingsmod.pet_empty": "Équipe un pet dans le slot P.",
+  "menu.asmpthingsmod.pet_bonuses": "Vie : +%s\nArmure : +%s",
+  "menu.asmpthingsmod.pet_put_away": "Repose l’objet dans ton inventaire avant d’ouvrir le menu du pet.",
+  "key.asmpthingsmod.pet_menu": "Menu du pet",
+  "key.categories.asmpthingsmod": "ASMP",
+  "block.asmpthingsmod.reinforced_metal_block": "Bloc de métal renforcé"
 }

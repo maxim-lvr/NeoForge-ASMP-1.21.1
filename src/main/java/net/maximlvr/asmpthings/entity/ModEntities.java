@@ -19,6 +19,12 @@ public class ModEntities {
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES =
             DeferredRegister.create(Registries.ENTITY_TYPE, AsmpThingsMod.MOD_ID);
 
+    public static final DeferredHolder<EntityType<?>, EntityType<net.maximlvr.asmpthings.pet.PetCompanionEntity>> PET_COMPANION =
+            ENTITY_TYPES.register("pet_companion", () -> EntityType.Builder
+                    .of(net.maximlvr.asmpthings.pet.PetCompanionEntity::new, MobCategory.MISC)
+                    .sized(0.7F, 0.45F).clientTrackingRange(8).updateInterval(2)
+                    .fireImmune().noSave().noSummon().build("pet_companion"));
+
     public static final DeferredHolder<EntityType<?>, EntityType<net.maximlvr.asmpthings.entity.custom.UndertakerEntity>> UNDERTAKER =
             ENTITY_TYPES.register("undertaker", () -> EntityType.Builder
                     .of(net.maximlvr.asmpthings.entity.custom.UndertakerEntity::new, MobCategory.CREATURE)

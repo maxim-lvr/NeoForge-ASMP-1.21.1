@@ -145,10 +145,6 @@ dependencies {
     compileOnly "maven.modrinth:camera-mod:neoforge-1.21.1-1.0.21"
     localRuntime "maven.modrinth:camera-mod:neoforge-1.21.1-1.0.21"
 
-    compileOnly files("mods/sophisticatedcore-1.21.1-1.4.42.1892.jar")
-    compileOnly files("mods/sophisticatedbackpacks-1.21.1-3.25.49.1791.jar")
-    localRuntime files("mods/sophisticatedcore-1.21.1-1.4.42.1892.jar")
-    localRuntime files("mods/sophisticatedbackpacks-1.21.1-3.25.49.1791.jar")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -191,6 +187,58 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+sourceSets {
+    mapChecks {
+        java.srcDir('tools/map/src')
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+    voiceChecks {
+        java.srcDir('tools/voice/src')
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
+tasks.register('verifyMapPlan', JavaExec) {
+    group = 'verification'
+    description = 'Vérifie le streaming, l’ordre des opérations, le découpage par chunk et l’annulation des cartes.'
+    classpath = sourceSets.mapChecks.runtimeClasspath
+    mainClass = 'net.maximlvr.asmpthings.mapchecks.MapPlanChecks'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    maxHeapSize = '256m'
+}
+tasks.named('check') { dependsOn 'verifyMapPlan' }
+
+tasks.register('verifyMapPlanLarge', JavaExec) {
+    group = 'verification'
+    description = 'Indexe le vrai JSON de carte avec un heap limité à 256 Mio et vérifie des chunks échantillons.'
+    classpath = sourceSets.mapChecks.runtimeClasspath
+    mainClass = 'net.maximlvr.asmpthings.mapchecks.MapPlanChecks'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    maxHeapSize = '256m'
+    args providers.gradleProperty('mapPlanFile').getOrElse('src/main/resources/data/asmpthingsmod/msmp/map_generation_final_seed42_10000x10000.json')
+}
+
+tasks.register('verifyPnjVoice', JavaExec) {
+    group = 'verification'
+    description = 'Vérifie le protocole Realtime, le transport et la persistance des souvenirs, sans réseau ni micro.'
+    classpath = sourceSets.voiceChecks.runtimeClasspath
+    mainClass = 'net.maximlvr.asmpthings.voicechecks.PnjVoiceChecks'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+}
+tasks.named('check') { dependsOn 'verifyPnjVoice' }
+
+tasks.register('verifyPnjVoiceLive', JavaExec) {
+    group = 'verification'
+    description = 'Test OpenAI payant, explicite : audio synthétique, réponse vocale et mémoire persistante.'
+    classpath = sourceSets.voiceChecks.runtimeClasspath
+    mainClass = 'net.maximlvr.asmpthings.voicechecks.PnjVoiceLiveChecks'
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }
+    systemProperty 'asmp.voice.keyFile', providers.gradleProperty('asmpVoiceKeyFile').getOrElse('/tmp/asmp-realtime-test-key')
+    systemProperty 'asmp.voice.model', providers.gradleProperty('asmpVoiceModel').getOrElse('gpt-realtime')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

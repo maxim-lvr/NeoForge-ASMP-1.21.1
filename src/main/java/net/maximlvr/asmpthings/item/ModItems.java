@@ -17,6 +17,11 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(AsmpThingsMod.MOD_ID);
 
+    public static final DeferredItem<net.maximlvr.asmpthings.pet.PetItem> PET_1 = ITEMS.register("pet_1",
+            () -> new net.maximlvr.asmpthings.pet.PetItem(net.maximlvr.asmpthings.pet.PetKind.PET_1, new Item.Properties().stacksTo(1)));
+    public static final DeferredItem<net.maximlvr.asmpthings.pet.PetItem> PET_2 = ITEMS.register("pet_2",
+            () -> new net.maximlvr.asmpthings.pet.PetItem(net.maximlvr.asmpthings.pet.PetKind.PET_2, new Item.Properties().stacksTo(1)));
+
     public static final DeferredItem<Item> UNDERTAKER_SPAWN_EGG = ITEMS.register("undertaker_spawn_egg",
             () -> new net.neoforged.neoforge.common.DeferredSpawnEggItem(
                     net.maximlvr.asmpthings.entity.ModEntities.UNDERTAKER, 0x302D35, 0x94785E, new Item.Properties()));

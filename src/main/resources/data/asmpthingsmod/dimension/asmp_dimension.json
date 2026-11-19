@@ -8,12 +8,8 @@
       "lakes": false,
       "layers": [
         {
-          "height": 1,
-          "block": "minecraft:bedrock"
-        },
-        {
-          "height": 363,
-          "block": "minecraft:stone"
+          "height": 1001,
+          "block": "asmpthingsmod:reinforced_metal_block"
         }
       ],
       "structure_overrides": []

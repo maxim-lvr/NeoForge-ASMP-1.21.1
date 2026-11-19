@@ -4,11 +4,9 @@ import net.maximlvr.asmpthings.ai.AiNpcChatHandler;
 import net.maximlvr.asmpthings.bank.BankEvents;
 import net.maximlvr.asmpthings.block.ModBlocks;
 import net.maximlvr.asmpthings.component.ModDataComponents;
-import net.maximlvr.asmpthings.command.BackpackInspectCommand;
 import net.maximlvr.asmpthings.entity.ModEntities;
 import net.maximlvr.asmpthings.entity.custom.ArmiBossEntity;
 import net.maximlvr.asmpthings.entity.custom.CubeBossEntity;
-import net.maximlvr.asmpthings.integration.sophisticated.BackpackInspectionInventory;
 import net.maximlvr.asmpthings.item.ModCreativeModeTabs;
 import net.maximlvr.asmpthings.item.ModItems;
 import net.maximlvr.asmpthings.network.ModNetworking;
@@ -37,20 +35,24 @@ public class AsmpThingsMod {
 
         NeoForge.EVENT_BUS.register(new AiNpcChatHandler());
         NeoForge.EVENT_BUS.register(new BankEvents());
-        NeoForge.EVENT_BUS.register(new BackpackInspectCommand());
-        BackpackInspectionInventory.register();
 
         ModCreativeModeTabs.register(modEventBus);
         ModItems.register(modEventBus);
         ModDataComponents.register(modEventBus);
         ModStats.register(modEventBus);
         ModNetworking.register(modEventBus);
+        net.maximlvr.asmpthings.network.PnjVoiceNetworking.register(modEventBus);
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModEntities.register(modEventBus);
+        net.maximlvr.asmpthings.pet.ModPets.register(modEventBus);
         net.maximlvr.asmpthings.effect.ModEffects.EFFECTS.register(modEventBus);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        modContainer.registerConfig(ModConfig.Type.SERVER,
+                net.maximlvr.asmpthings.pet.PetConfig.SPEC, "asmpthingsmod-pets.toml");
+        modContainer.registerConfig(ModConfig.Type.COMMON,
+                net.maximlvr.asmpthings.ai.voice.PnjVoiceConfig.SPEC, "asmpthingsmod-voice.toml");
     }
 
     private void registerAttributes(EntityAttributeCreationEvent event) {

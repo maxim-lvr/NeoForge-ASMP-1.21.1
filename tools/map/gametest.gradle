@@ -1,0 +1,13 @@
+// python3 tools/map/gametest-template.py
+// ./gradlew runGameTestServer --init-script tools/map/gametest.gradle
+allprojects {
+    layout.buildDirectory = file('/tmp/asmp-map-test-build')
+    plugins.withId('net.neoforged.moddev') {
+        sourceSets.main.java.srcDir('tools/map/gametest-src')
+        sourceSets.main.resources.srcDir('/tmp/asmp-map-resources')
+    }
+    afterEvaluate {
+        neoForge.runs.gameTestServer.gameDirectory = file('/tmp/asmp-map-test-run')
+        neoForge.runs.gameTestServer.logLevel = org.slf4j.event.Level.INFO
+    }
+}

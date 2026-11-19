@@ -31,14 +31,25 @@ import net.neoforged.neoforge.common.NeoForge;
 @Mod(value = AsmpThingsMod.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = AsmpThingsMod.MOD_ID, value = Dist.CLIENT)
 public class AsmpThingsModClient {
-    public AsmpThingsModClient(ModContainer container) {
+    public AsmpThingsModClient(ModContainer container, net.neoforged.bus.api.IEventBus modEventBus) {
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.CLIENT,
+                net.maximlvr.asmpthings.client.voice.PnjAudioConfig.SPEC, "asmpthingsmod-voice-client.toml");
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         NeoForge.EVENT_BUS.addListener(AsmpThingsModClient::onRenderFog);
         NeoForge.EVENT_BUS.addListener(AsmpThingsModClient::onComputeFogColor);
+        modEventBus.addListener(net.maximlvr.asmpthings.client.render.VoidWindowRenderer::registerShaders);
+        modEventBus.addListener(net.maximlvr.asmpthings.client.pet.PetClient::keys);
+        modEventBus.addListener(net.maximlvr.asmpthings.client.pet.PetClient::screens);
+        NeoForge.EVENT_BUS.addListener(net.maximlvr.asmpthings.client.render.VoidWindowRenderer::captureSky);
+        NeoForge.EVENT_BUS.addListener(net.maximlvr.asmpthings.client.render.VoidWindowRenderer::logout);
     }
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(ModEntities.PET_COMPANION.get(), net.maximlvr.asmpthings.client.pet.PetCompanionRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.VOID_WINDOW.get(), net.maximlvr.asmpthings.client.render.VoidWindowRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.MOUNTAIN_WINDOW.get(),
+                context -> new net.maximlvr.asmpthings.client.render.VoidWindowRenderer(context, true));
         event.registerEntityRenderer(ModEntities.UNDERTAKER.get(), net.maximlvr.asmpthings.client.render.UndertakerRenderer::new);
         event.registerEntityRenderer(ModEntities.GOLEM.get(), net.maximlvr.asmpthings.client.render.GolemRenderer::new);
         event.registerEntityRenderer(ModEntities.KRABER_SPHERE.get(), net.maximlvr.asmpthings.client.render.KraberSphereRenderer::new);
@@ -55,6 +66,8 @@ public class AsmpThingsModClient {
 
     @SubscribeEvent
     public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(net.maximlvr.asmpthings.client.pet.PetCompanionModel.LAYER_LOCATION,
+                net.maximlvr.asmpthings.client.pet.PetCompanionModel::createBodyLayer);
         event.registerLayerDefinition(net.maximlvr.asmpthings.client.model.GolemModel.LAYER_LOCATION,
                 net.maximlvr.asmpthings.client.model.GolemGeometry::createBodyLayer);
         event.registerLayerDefinition(net.maximlvr.asmpthings.client.model.DroneModel.LAYER_LOCATION,

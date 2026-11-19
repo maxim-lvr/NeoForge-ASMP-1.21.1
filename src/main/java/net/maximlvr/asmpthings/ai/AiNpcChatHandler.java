@@ -41,14 +41,14 @@ public class AiNpcChatHandler {
     private final Map<UUID, NameBubbleState> activeNameBubbles = new HashMap<>();
     private final Set<UUID> playersWaitingForNpcResponse = new HashSet<>();
 
-    private final AiNpcPlayerMemoryStore playerMemoryStore = new AiNpcPlayerMemoryStore();
-    private final AiNpcPersonalityStore personalityStore = new AiNpcPersonalityStore();
-    private final AiNpcGeneralMemoryStore generalMemoryStore = new AiNpcGeneralMemoryStore();
-
     @SubscribeEvent
     public void onServerChat(ServerChatEvent event) {
         ServerPlayer player = event.getPlayer();
         MinecraftServer server = player.server;
+
+        AiNpcPlayerMemoryStore playerMemoryStore = AiNpcKnowledge.get().players;
+        AiNpcPersonalityStore personalityStore = AiNpcKnowledge.get().personalities;
+        AiNpcGeneralMemoryStore generalMemoryStore = AiNpcKnowledge.get().world;
 
         String rawMessage = event.getRawText();
 
@@ -231,6 +231,8 @@ public class AiNpcChatHandler {
             UUID playerUuid,
             String rawJson
     ) {
+        AiNpcPlayerMemoryStore playerMemoryStore = AiNpcKnowledge.get().players;
+        AiNpcGeneralMemoryStore generalMemoryStore = AiNpcKnowledge.get().world;
         AiNpcPlayerMemoryStore.ProfileUpdateResult profileUpdateResult =
                 playerMemoryStore.applyAiProfileUpdate(
                         targetName,

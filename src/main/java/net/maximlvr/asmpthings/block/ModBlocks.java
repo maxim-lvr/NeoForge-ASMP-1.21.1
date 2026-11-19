@@ -19,6 +19,17 @@ public class ModBlocks {
 
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(AsmpThingsMod.MOD_ID);
 
+    public static final DeferredBlock<ReinforcedMetalBlock> REINFORCED_METAL_BLOCK = registerBlock("reinforced_metal_block",
+            () -> new ReinforcedMetalBlock(BlockBehaviour.Properties.of()
+                    .mapColor(net.minecraft.world.level.material.MapColor.METAL)
+                    .strength(50.0F, 1200.0F).sound(SoundType.METAL)));
+
+    public static final DeferredBlock<VoidWindowBlock> VOID_WINDOW = registerBlock("void_window",
+            () -> new VoidWindowBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.STONE)));
+
+    public static final DeferredBlock<VoidWindowBlock> MOUNTAIN_WINDOW = registerBlock("mountain_window",
+            () -> new VoidWindowBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.STONE)));
+
     public static final DeferredBlock<ArmiPlatformBlock> ARMI_PLATFORM_RED = registerBlock("armi_platform_red",
             () -> new ArmiPlatformBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.RED_WOOL)
                     .noOcclusion().dynamicShape().isSuffocating((state, level, pos) -> false)
